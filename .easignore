@@ -1,0 +1,41 @@
+# Exclude files and folders from EAS project upload
+
+# Version control and IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Node/JS
+node_modules/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.log
+*.log
+
+# Expo/Metro artifacts
+.expo/
+.expo-shared/
+.metro-health-check*
+dist/
+web-build/
+
+# Native (EAS will generate these on remote builders)
+android/
+ios/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Archives and large binaries
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.apk
+*.aab
+*.ipa
+
+
