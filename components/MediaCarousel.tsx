@@ -14,6 +14,7 @@ type Props = {
   fullscreen?: boolean;
   onOpenFullscreen?: (index: number) => void;
   onClose?: () => void;
+  onIndexChange?: (index: number) => void;
 };
 
 // Separate component for video slides to use the useVideoPlayer hook correctly
@@ -41,11 +42,16 @@ function VideoSlide({ uri, isLoop, fullscreen, isActive }: { uri: string; isLoop
   );
 }
 
-export default function MediaCarousel({ slides, startIndex = 0, fullscreen = false, onOpenFullscreen, onClose }: Props) {
+export default function MediaCarousel({ slides, startIndex = 0, fullscreen = false, onOpenFullscreen, onClose, onIndexChange }: Props) {
   const { width } = Dimensions.get('window');
   const listRef = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(startIndex);
   const insets = useSafeAreaInsets();
+
+  // Notify parent of index changes
+  useEffect(() => {
+    onIndexChange?.(index);
+  }, [index, onIndexChange]);
 
   return (
     <View style={{ width: '100%', height: fullscreen ? '100%' : 320, paddingTop: fullscreen ? 0 : 0 }}>
