@@ -1,8 +1,8 @@
 import type { Slide } from '@/types/media';
 import { driveToDirectUrl } from '@/utils/drive';
-import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
-import { useRef, useState } from 'react';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEffect, useRef, useState } from 'react';
 import { Dimensions, FlatList, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from './ThemedText';
@@ -15,6 +15,31 @@ type Props = {
   onOpenFullscreen?: (index: number) => void;
   onClose?: () => void;
 };
+
+// Separate component for video slides to use the useVideoPlayer hook correctly
+function VideoSlide({ uri, isLoop, fullscreen, isActive }: { uri: string; isLoop: boolean; fullscreen: boolean; isActive: boolean }) {
+  const player = useVideoPlayer(driveToDirectUrl(uri, { asDownload: true }), (p) => {
+    p.loop = isLoop;
+    p.muted = false;
+  });
+
+  useEffect(() => {
+    if (isActive) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [isActive, player]);
+
+  return (
+    <VideoView
+      player={player}
+      style={{ width: '100%', height: '100%', backgroundColor: 'black' }}
+      contentFit="contain"
+      nativeControls={fullscreen}
+    />
+  );
+}
 
 export default function MediaCarousel({ slides, startIndex = 0, fullscreen = false, onOpenFullscreen, onClose }: Props) {
   const { width } = Dimensions.get('window');
@@ -47,13 +72,11 @@ export default function MediaCarousel({ slides, startIndex = 0, fullscreen = fal
             {item.type === 'image' ? (
               <Image source={{ uri: driveToDirectUrl(item.uri, { asDownload: false }) }} contentFit="contain" style={{ width: '100%', height: '100%', backgroundColor: 'black' }} />
             ) : (
-              <Video
-                source={{ uri: driveToDirectUrl(item.uri, { asDownload: true }) }}
-                style={{ width: '100%', height: '100%', backgroundColor: 'black' }}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay
-                isLooping={item.isLoop ?? true}
-                useNativeControls={fullscreen}
+              <VideoSlide
+                uri={item.uri}
+                isLoop={item.isLoop ?? true}
+                fullscreen={fullscreen}
+                isActive={itemIndex === index}
               />
             )}
           </TouchableOpacity>
