@@ -1,7 +1,8 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, TouchableOpacity, View } from 'react-native';
 import MediaCarousel from '../../../../components/MediaCarousel';
 import content from '../../../../data/content';
@@ -19,6 +20,18 @@ export default function SubtopicDetailScreen() {
   }, [categoryId, subtopicId]);
 
   const [fullscreen, setFullscreen] = useState<{ index: number } | null>(null);
+
+  // Lock to portrait normally; unlock all orientations when fullscreen
+  useEffect(() => {
+    if (fullscreen) {
+      ScreenOrientation.unlockAsync();
+    } else {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    }
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    };
+  }, [fullscreen]);
 
   if (!subtopic) {
     return (

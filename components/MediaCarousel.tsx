@@ -4,6 +4,7 @@ import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
 import { useRef, useState } from 'react';
 import { Dimensions, FlatList, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from './ThemedText';
 import { IconSymbol } from './ui/IconSymbol';
 
@@ -19,6 +20,7 @@ export default function MediaCarousel({ slides, startIndex = 0, fullscreen = fal
   const { width } = Dimensions.get('window');
   const listRef = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(startIndex);
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={{ width: '100%', height: fullscreen ? '100%' : 320, paddingTop: fullscreen ? 0 : 0 }}>
@@ -63,8 +65,20 @@ export default function MediaCarousel({ slides, startIndex = 0, fullscreen = fal
         </View>
       ) : null}
       {fullscreen && onClose ? (
-        <TouchableOpacity onPress={onClose} style={{ position: 'absolute', top: 16, right: 16, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }}>
-          <IconSymbol size={22} name="xmark.circle.fill" color="#fff" />
+        <TouchableOpacity
+          onPress={onClose}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+          style={{
+            position: 'absolute',
+            top: insets.top + 12,
+            right: 16,
+            padding: 12,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            borderRadius: 24,
+            zIndex: 100,
+          }}
+        >
+          <IconSymbol size={28} name="xmark.circle.fill" color="#fff" />
         </TouchableOpacity>
       ) : null}
     </View>
