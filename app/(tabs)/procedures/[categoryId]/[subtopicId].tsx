@@ -121,6 +121,7 @@ export default function SubtopicDetailScreen() {
           <View style={{ flex: 1, opacity: fullscreen ? 0 : 1 }}>
             <MediaCarousel
               slides={subtopic.slides}
+              syncToIndex={!fullscreen ? currentSlideIndex : undefined}
               playerCache={playerCacheRef.current!}
               onOpenFullscreen={(index: number) => setFullscreen({ index })}
               onIndexChange={handleIndexChange}
@@ -155,6 +156,7 @@ export default function SubtopicDetailScreen() {
                 startIndex={fullscreen?.index ?? 0}
                 fullscreen
                 playerCache={playerCacheRef.current!}
+                onIndexChange={handleIndexChange}
                 onClose={exitFullscreen}
               />
             </ThemedView>

@@ -20,6 +20,7 @@ import { IconSymbol } from './ui/IconSymbol';
 type Props = {
   slides: Slide[];
   startIndex?: number;
+  syncToIndex?: number;
   fullscreen?: boolean;
   playerCache?: VideoPlayerCache;
   onOpenFullscreen?: (index: number) => void;
@@ -126,6 +127,7 @@ const absoluteFill = {
 export default function MediaCarousel({
   slides,
   startIndex = 0,
+  syncToIndex,
   fullscreen = false,
   playerCache,
   onOpenFullscreen,
@@ -140,6 +142,14 @@ export default function MediaCarousel({
   useEffect(() => {
     onIndexChange?.(index);
   }, [index, onIndexChange]);
+
+  // Sync to externally-requested index (e.g. after returning from fullscreen)
+  useEffect(() => {
+    if (syncToIndex !== undefined && syncToIndex !== index) {
+      setIndex(syncToIndex);
+      listRef.current?.scrollToIndex({ index: syncToIndex, animated: false });
+    }
+  }, [syncToIndex]);
 
   useEffect(() => {
     if (listRef.current && slides.length > 0) {
