@@ -1,9 +1,11 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { useOrientationFullscreen } from '@/hooks/useOrientationFullscreen';
+import { VideoPlayerCache } from '@/utils/videoPlayerCache';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Modal, ScrollView, StatusBar, TouchableOpacity, View } from 'react-native';
 import MediaCarousel from '../../../../components/MediaCarousel';
 import content from '../../../../data/content';
 
@@ -22,21 +24,41 @@ export default function SubtopicDetailScreen() {
   const [fullscreen, setFullscreen] = useState<{ index: number } | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
+  const playerCacheRef = useRef<VideoPlayerCache | null>(null);
+  if (!playerCacheRef.current) {
+    playerCacheRef.current = new VideoPlayerCache();
+  }
+
   const handleIndexChange = useCallback((index: number) => {
     setCurrentSlideIndex(index);
   }, []);
 
-  // Lock to portrait normally; unlock all orientations when fullscreen
+  const currentSlide = subtopic?.slides?.[currentSlideIndex];
+  const currentSlideType = currentSlide?.type;
+
   useEffect(() => {
-    if (fullscreen) {
-      ScreenOrientation.unlockAsync();
-    } else {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-    }
+    ScreenOrientation.unlockAsync();
+    const cache = playerCacheRef.current;
     return () => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      cache?.releaseAll();
     };
-  }, [fullscreen]);
+  }, []);
+
+  const enterFullscreen = useCallback(() => {
+    setFullscreen({ index: currentSlideIndex });
+  }, [currentSlideIndex]);
+
+  const exitFullscreen = useCallback(() => {
+    setFullscreen(null);
+  }, []);
+
+  useOrientationFullscreen(
+    currentSlideType,
+    enterFullscreen,
+    exitFullscreen,
+    !!fullscreen,
+  );
 
   if (!subtopic) {
     return (
@@ -89,8 +111,6 @@ export default function SubtopicDetailScreen() {
     );
   }
 
-  const currentSlide = subtopic?.slides?.[currentSlideIndex];
-  // Only image and video slides have captions; text slides display content inline
   const currentCaption = currentSlide && currentSlide.type !== 'text' ? currentSlide.caption : undefined;
 
   return (
@@ -98,36 +118,44 @@ export default function SubtopicDetailScreen() {
       <Stack.Screen options={{ title: subtopic?.title ?? 'Detail', headerLargeTitle: false }} />
       {subtopic?.slides ? (
         <>
-          {/* Media carousel stays fixed at top */}
-          <MediaCarousel
-            slides={subtopic.slides}
-            onOpenFullscreen={(index: number) => setFullscreen({ index })}
-            onIndexChange={handleIndexChange}
-          />
-          {/* Caption and longText are scrollable below the media */}
-          <ScrollView 
-            style={{ flex: 1 }} 
-            contentContainerStyle={{ paddingBottom: 32 }}
-            showsVerticalScrollIndicator
+          <View style={{ flex: 1, opacity: fullscreen ? 0 : 1 }}>
+            <MediaCarousel
+              slides={subtopic.slides}
+              playerCache={playerCacheRef.current!}
+              onOpenFullscreen={(index: number) => setFullscreen({ index })}
+              onIndexChange={handleIndexChange}
+            />
+            <ScrollView 
+              style={{ flex: 1 }} 
+              contentContainerStyle={{ paddingBottom: 32 }}
+              showsVerticalScrollIndicator
+            >
+              {currentCaption ? (
+                <View style={{ padding: 16, paddingBottom: 8 }}>
+                  <ThemedText style={{ fontSize: 18, lineHeight: 26 }}>{currentCaption}</ThemedText>
+                </View>
+              ) : null}
+              {subtopic.longText ? (
+                <View style={{ paddingHorizontal: 16, paddingTop: currentCaption ? 8 : 16 }}>
+                  <ThemedText style={{ fontSize: 16, lineHeight: 24, opacity: 0.8 }}>{subtopic.longText}</ThemedText>
+                </View>
+              ) : null}
+            </ScrollView>
+          </View>
+          <Modal
+            visible={!!fullscreen}
+            animationType="none"
+            supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
+            onRequestClose={exitFullscreen}
           >
-            {currentCaption ? (
-              <View style={{ padding: 16, paddingBottom: 8 }}>
-                <ThemedText style={{ fontSize: 18, lineHeight: 26 }}>{currentCaption}</ThemedText>
-              </View>
-            ) : null}
-            {subtopic.longText ? (
-              <View style={{ paddingHorizontal: 16, paddingTop: currentCaption ? 8 : 16 }}>
-                <ThemedText style={{ fontSize: 16, lineHeight: 24, opacity: 0.8 }}>{subtopic.longText}</ThemedText>
-              </View>
-            ) : null}
-          </ScrollView>
-          <Modal visible={!!fullscreen} animationType="fade" onRequestClose={() => setFullscreen(null)}>
+            <StatusBar hidden={!!fullscreen} />
             <ThemedView style={{ flex: 1, backgroundColor: 'black' }}>
               <MediaCarousel
                 slides={subtopic.slides}
                 startIndex={fullscreen?.index ?? 0}
                 fullscreen
-                onClose={() => setFullscreen(null)}
+                playerCache={playerCacheRef.current!}
+                onClose={exitFullscreen}
               />
             </ThemedView>
           </Modal>
