@@ -28,6 +28,17 @@ export class VideoPlayerCache {
     return this.entries.has(uri);
   }
 
+  release(uri: string): void {
+    const entry = this.entries.get(uri);
+    if (!entry) return;
+    try {
+      entry.player.release();
+    } catch {
+      // Player may already be released
+    }
+    this.entries.delete(uri);
+  }
+
   releaseAll(): void {
     this.entries.forEach(({ player }) => {
       try {

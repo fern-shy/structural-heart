@@ -1,22 +1,38 @@
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { useOrientationFullscreen } from '@/hooks/useOrientationFullscreen';
-import { VideoPlayerCache } from '@/utils/videoPlayerCache';
-import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import * as ScreenOrientation from 'expo-screen-orientation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, ScrollView, StatusBar, TouchableOpacity, View } from 'react-native';
-import MediaCarousel from '../../../../components/MediaCarousel';
-import content from '../../../../data/content';
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
+import { useOrientationFullscreen } from "@/hooks/useOrientationFullscreen";
+import { VideoPlayerCache } from "@/utils/videoPlayerCache";
+import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
+import * as ScreenOrientation from "expo-screen-orientation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FlatList,
+  Modal,
+  ScrollView,
+  StatusBar,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import MediaCarousel from "../../../../components/MediaCarousel";
+import content from "../../../../data/content";
 
 export default function SubtopicDetailScreen() {
-  const { categoryId, subtopicId } = useLocalSearchParams<{ categoryId: string; subtopicId: string }>();
+  const { categoryId, subtopicId } = useLocalSearchParams<{
+    categoryId: string;
+    subtopicId: string;
+  }>();
   const router = useRouter();
-  const { subtopic, parent } = useMemo(() => {
+  const { subtopic } = useMemo(() => {
     const category = content.categories.find((c) => c.id === categoryId);
     const direct = category?.subtopics.find((s) => s.id === subtopicId);
-    if (direct) return { subtopic: direct, parent: undefined as undefined | typeof direct };
-    const container = category?.subtopics.find((s) => s.children?.some((c) => c.id === subtopicId));
+    if (direct)
+      return {
+        subtopic: direct,
+        parent: undefined as undefined | typeof direct,
+      };
+    const container = category?.subtopics.find((s) =>
+      s.children?.some((c) => c.id === subtopicId),
+    );
     const child = container?.children?.find((c) => c.id === subtopicId);
     return { subtopic: child, parent: container };
   }, [categoryId, subtopicId]);
@@ -40,7 +56,9 @@ export default function SubtopicDetailScreen() {
     ScreenOrientation.unlockAsync();
     const cache = playerCacheRef.current;
     return () => {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.PORTRAIT_UP,
+      );
       cache?.releaseAll();
     };
   }, []);
@@ -62,7 +80,9 @@ export default function SubtopicDetailScreen() {
 
   if (!subtopic) {
     return (
-      <ThemedView style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <ThemedView
+        style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+      >
         <ThemedText>Subtopic not found.</ThemedText>
         <Link href={`/procedures/${categoryId}`}>
           <ThemedText type="link">Back to Category</ThemedText>
@@ -76,18 +96,25 @@ export default function SubtopicDetailScreen() {
 
   // Identify a container node that holds children (either the selected item, or its parent)
   const containerNode =
-    subtopic && (!subtopic.slides || subtopic.slides.length === 0) && (subtopic.children?.length ?? 0) > 0
+    subtopic &&
+    (!subtopic.slides || subtopic.slides.length === 0) &&
+    (subtopic.children?.length ?? 0) > 0
       ? subtopic
       : undefined;
 
   if (containerNode) {
     return (
       <ThemedView style={{ flex: 1 }}>
-        <Stack.Screen options={{ title: containerNode.title, headerLargeTitle: false }} />
+        <Stack.Screen
+          options={{ title: containerNode.title, headerLargeTitle: false }}
+        />
         <FlatList
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8 }}
-
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingBottom: 16,
+            paddingTop: 8,
+          }}
           data={containerNode.children ?? []}
           keyExtractor={(item) => item.id}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
@@ -95,27 +122,43 @@ export default function SubtopicDetailScreen() {
             <TouchableOpacity
               onPress={() =>
                 router.push({
-                  pathname: '/procedures/[categoryId]/[subtopicId]',
+                  pathname: "/procedures/[categoryId]/[subtopicId]",
                   params: { categoryId, subtopicId: item.id },
                 })
               }
-              style={{ padding: 16, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.05)' }}
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                backgroundColor: "rgba(0,0,0,0.05)",
+              }}
             >
               <ThemedText type="subtitle">{item.title}</ThemedText>
-              {item.description ? <ThemedText>{item.description}</ThemedText> : null}
+              {item.description ? (
+                <ThemedText>{item.description}</ThemedText>
+              ) : null}
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<ThemedText>No subitems found. Check data/content.ts.</ThemedText>}
+          ListEmptyComponent={
+            <ThemedText>No subitems found. Check data/content.ts.</ThemedText>
+          }
         />
       </ThemedView>
     );
   }
 
-  const currentCaption = currentSlide && currentSlide.type !== 'text' ? currentSlide.caption : undefined;
+  const currentCaption =
+    currentSlide && currentSlide.type !== "text"
+      ? currentSlide.caption
+      : undefined;
 
   return (
     <ThemedView style={{ flex: 1 }}>
-      <Stack.Screen options={{ title: subtopic?.title ?? 'Detail', headerLargeTitle: false }} />
+      <Stack.Screen
+        options={{
+          title: subtopic?.title ?? "Detail",
+          headerLargeTitle: false,
+        }}
+      />
       {subtopic?.slides ? (
         <>
           <View style={{ flex: 1, opacity: fullscreen ? 0 : 1 }}>
@@ -126,19 +169,30 @@ export default function SubtopicDetailScreen() {
               onOpenFullscreen={(index: number) => setFullscreen({ index })}
               onIndexChange={handleIndexChange}
             />
-            <ScrollView 
-              style={{ flex: 1 }} 
+            <ScrollView
+              style={{ flex: 1 }}
               contentContainerStyle={{ paddingBottom: 32 }}
               showsVerticalScrollIndicator
             >
               {currentCaption ? (
                 <View style={{ padding: 16, paddingBottom: 8 }}>
-                  <ThemedText style={{ fontSize: 18, lineHeight: 26 }}>{currentCaption}</ThemedText>
+                  <ThemedText style={{ fontSize: 18, lineHeight: 26 }}>
+                    {currentCaption}
+                  </ThemedText>
                 </View>
               ) : null}
               {subtopic.longText ? (
-                <View style={{ paddingHorizontal: 16, paddingTop: currentCaption ? 8 : 16 }}>
-                  <ThemedText style={{ fontSize: 16, lineHeight: 24, opacity: 0.8 }}>{subtopic.longText}</ThemedText>
+                <View
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingTop: currentCaption ? 8 : 16,
+                  }}
+                >
+                  <ThemedText
+                    style={{ fontSize: 16, lineHeight: 24, opacity: 0.8 }}
+                  >
+                    {subtopic.longText}
+                  </ThemedText>
                 </View>
               ) : null}
             </ScrollView>
@@ -146,11 +200,15 @@ export default function SubtopicDetailScreen() {
           <Modal
             visible={!!fullscreen}
             animationType="none"
-            supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
+            supportedOrientations={[
+              "portrait",
+              "landscape-left",
+              "landscape-right",
+            ]}
             onRequestClose={exitFullscreen}
           >
             <StatusBar hidden={!!fullscreen} />
-            <ThemedView style={{ flex: 1, backgroundColor: 'black' }}>
+            <ThemedView style={{ flex: 1, backgroundColor: "black" }}>
               <MediaCarousel
                 slides={subtopic.slides}
                 startIndex={fullscreen?.index ?? 0}
@@ -170,5 +228,3 @@ export default function SubtopicDetailScreen() {
     </ThemedView>
   );
 }
-
-

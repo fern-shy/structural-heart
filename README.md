@@ -1,50 +1,38 @@
-# Welcome to your Expo app 👋
+# Structural Heart
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Mobile-first educational app for structural heart procedures, built with Expo Router and React Native.
 
-## Get started
+## What this app demonstrates
 
-1. Install dependencies
+- Clear mobile information architecture: `Procedures -> Subtopics -> Slides`
+- Mixed-media clinical learning experience (text, image, video)
+- Offline-friendly packaged content model with remote media delivery
+- iOS/Android release path via Expo Application Services (EAS)
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Quick start
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Project documentation
 
-## Learn more
+- Architecture and system walkthrough: [`docs/architecture.md`](docs/architecture.md)
+- Media storage migration plan (Google Drive -> CDN): [`docs/media-migration.md`](docs/media-migration.md)
 
-To learn more about developing your project with Expo, look at the following resources:
+## Current tech stack
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- Expo SDK 54 + Expo Router
+- React Native 0.81 + React 19
+- Media: `expo-image`, `expo-video`
+- Search: `fuse.js` ... much love to Ian Brash for teaching me about fuse!
+- OTA updates: `expo-updates` with EAS channels
 
-## Join the community
+## Core code paths
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- App shell: `app/_layout.tsx`, `app/(tabs)/_layout.tsx`
+- Procedure screens: `app/(tabs)/procedures/*`
+- Search: `app/(tabs)/search/index.tsx`
+- Content model: `data/content.ts`, `types/media.ts`
+- Media handling: `components/MediaCarousel.tsx`, `utils/drive.ts`, `utils/videoPlayerCache.ts`

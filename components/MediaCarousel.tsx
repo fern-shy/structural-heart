@@ -43,6 +43,8 @@ function VideoSlide({
 }) {
   const resolvedUri = driveToDirectUrl(uri, { asDownload: true });
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   const player = playerCache
     ? playerCache.getOrCreate(resolvedUri, (p) => {
@@ -56,22 +58,33 @@ function VideoSlide({
 
     if (player.status === 'readyToPlay') {
       setReady(true);
+      setLoadError(false);
+    } else if (player.status === 'error') {
+      setLoadError(true);
     }
 
     const sub = player.addListener('statusChange', ({ status }) => {
-      if (status === 'readyToPlay') setReady(true);
+      if (status === 'readyToPlay') {
+        setReady(true);
+        setLoadError(false);
+      }
+      if (status === 'error') {
+        setReady(false);
+        setLoadError(true);
+      }
     });
     return () => sub.remove();
-  }, [player]);
+  }, [player, retryNonce]);
 
   useEffect(() => {
     if (!player) return;
+    if (loadError) return;
     if (isActive) {
       player.play();
     } else {
       player.pause();
     }
-  }, [isActive, player]);
+  }, [isActive, loadError, player]);
 
   if (!player) return null;
 
@@ -83,7 +96,7 @@ function VideoSlide({
         contentFit="contain"
         nativeControls={fullscreen}
       />
-      {!ready && (
+      {!ready && !loadError && (
         <View
           style={{
             ...absoluteFill,
@@ -95,6 +108,110 @@ function VideoSlide({
           <ActivityIndicator size="large" color="#ffffff" />
         </View>
       )}
+      {loadError && (
+        <View
+          style={{
+            ...absoluteFill,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'black',
+            paddingHorizontal: 24,
+          }}
+        >
+          <ThemedText style={{ color: '#fff', textAlign: 'center', marginBottom: 12 }}>
+            Video failed to load.
+          </ThemedText>
+          <TouchableOpacity
+            onPress={() => {
+              setReady(false);
+              setLoadError(false);
+              playerCache?.release(resolvedUri);
+              setRetryNonce((n) => n + 1);
+            }}
+            style={{
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+            }}
+          >
+            <ThemedText style={{ color: '#fff', fontWeight: '600' }}>Retry</ThemedText>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function ImageSlide({ uri }: { uri: string }) {
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const resolvedUri = driveToDirectUrl(uri, { asDownload: false });
+  const sourceUri = `${resolvedUri}${resolvedUri.includes('?') ? '&' : '?'}retry=${retryNonce}`;
+
+  return (
+    <View style={{ width: '100%', height: '100%', backgroundColor: 'black' }}>
+      <Image
+        source={{ uri: sourceUri }}
+        cachePolicy="memory-disk"
+        contentFit="contain"
+        onLoadStart={() => {
+          setLoading(true);
+          setHasError(false);
+        }}
+        onLoad={() => {
+          setLoading(false);
+          setHasError(false);
+        }}
+        onError={() => {
+          setLoading(false);
+          setHasError(true);
+        }}
+        style={{ width: '100%', height: '100%', backgroundColor: 'black' }}
+      />
+      {loading && !hasError ? (
+        <View
+          style={{
+            ...absoluteFill,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'black',
+          }}
+        >
+          <ActivityIndicator size="large" color="#ffffff" />
+        </View>
+      ) : null}
+      {hasError ? (
+        <View
+          style={{
+            ...absoluteFill,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'black',
+            paddingHorizontal: 24,
+          }}
+        >
+          <ThemedText style={{ color: '#fff', textAlign: 'center', marginBottom: 12 }}>
+            Image failed to load.
+          </ThemedText>
+          <TouchableOpacity
+            onPress={() => {
+              setLoading(true);
+              setHasError(false);
+              setRetryNonce((n) => n + 1);
+            }}
+            style={{
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+            }}
+          >
+            <ThemedText style={{ color: '#fff', fontWeight: '600' }}>Retry</ThemedText>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -149,6 +266,8 @@ export default function MediaCarousel({
       setIndex(syncToIndex);
       listRef.current?.scrollToIndex({ index: syncToIndex, animated: false });
     }
+    // Intentionally keyed only on external sync target to avoid feedback loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncToIndex]);
 
   useEffect(() => {
@@ -194,11 +313,7 @@ export default function MediaCarousel({
               style={{ width, height: containerHeight }}
             >
               {item.type === 'image' ? (
-                <Image
-                  source={{ uri: driveToDirectUrl(item.uri, { asDownload: false }) }}
-                  contentFit="contain"
-                  style={{ width: '100%', height: '100%', backgroundColor: 'black' }}
-                />
+                <ImageSlide uri={item.uri} />
               ) : (
                 <VideoSlide
                   uri={item.uri}
