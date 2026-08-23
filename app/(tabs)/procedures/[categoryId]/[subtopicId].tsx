@@ -1,5 +1,7 @@
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { useContent } from "@/context/ContentProvider";
 import { useOrientationFullscreen } from "@/hooks/useOrientationFullscreen";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -8,13 +10,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Modal,
+  Platform,
   ScrollView,
   StatusBar,
   TouchableOpacity,
   View,
 } from "react-native";
 import MediaCarousel from "../../../../components/MediaCarousel";
-import content from "../../../../data/content";
 
 export default function SubtopicDetailScreen() {
   const { categoryId, subtopicId } = useLocalSearchParams<{
@@ -22,8 +24,9 @@ export default function SubtopicDetailScreen() {
     subtopicId: string;
   }>();
   const router = useRouter();
+  const { content, loading } = useContent();
   const { subtopic } = useMemo(() => {
-    const category = content.categories.find((c) => c.id === categoryId);
+    const category = content?.categories.find((c) => c.id === categoryId);
     const direct = category?.subtopics.find((s) => s.id === subtopicId);
     if (direct)
       return {
@@ -35,7 +38,7 @@ export default function SubtopicDetailScreen() {
     );
     const child = container?.children?.find((c) => c.id === subtopicId);
     return { subtopic: child, parent: container };
-  }, [categoryId, subtopicId]);
+  }, [content, categoryId, subtopicId]);
 
   const [fullscreen, setFullscreen] = useState<{ index: number } | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -53,12 +56,17 @@ export default function SubtopicDetailScreen() {
   const currentSlideType = currentSlide?.type;
 
   useEffect(() => {
-    ScreenOrientation.unlockAsync();
     const cache = playerCacheRef.current;
+    // Screen-orientation locking is native-only; on web these reject.
+    if (Platform.OS !== "web") {
+      ScreenOrientation.unlockAsync().catch(() => {});
+    }
     return () => {
-      ScreenOrientation.lockAsync(
-        ScreenOrientation.OrientationLock.PORTRAIT_UP,
-      );
+      if (Platform.OS !== "web") {
+        ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.PORTRAIT_UP,
+        ).catch(() => {});
+      }
       cache?.releaseAll();
     };
   }, []);
@@ -77,6 +85,10 @@ export default function SubtopicDetailScreen() {
     exitFullscreen,
     !!fullscreen,
   );
+
+  if (!content && loading) {
+    return <LoadingScreen />;
+  }
 
   if (!subtopic) {
     return (
@@ -139,7 +151,7 @@ export default function SubtopicDetailScreen() {
             </TouchableOpacity>
           )}
           ListEmptyComponent={
-            <ThemedText>No subitems found. Check data/content.ts.</ThemedText>
+            <ThemedText>No subitems found.</ThemedText>
           }
         />
       </ThemedView>
@@ -222,7 +234,7 @@ export default function SubtopicDetailScreen() {
         </>
       ) : (
         <View style={{ padding: 16 }}>
-          <ThemedText>No media found. Check data/content.ts.</ThemedText>
+          <ThemedText>No media found for this procedure yet.</ThemedText>
         </View>
       )}
     </ThemedView>

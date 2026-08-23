@@ -1,5 +1,5 @@
 import type { Slide } from "@/types/media";
-import { driveToDirectUrl } from "@/utils/drive";
+import { driveImageUrl, drivePreviewUrl, driveToDirectUrl } from "@/utils/drive";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
 import { Image } from "expo-image";
 import { VideoView } from "expo-video";
@@ -8,12 +8,14 @@ import {
   ActivityIndicator,
   DimensionValue,
   FlatList,
+  Platform,
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import DriveVideoFrame from "./DriveVideoFrame";
 import { ThemedText } from "./ThemedText";
 import { IconSymbol } from "./ui/IconSymbol";
 
@@ -28,19 +30,32 @@ type Props = {
   onClose?: () => void;
 };
 
-function VideoSlide({
-  uri,
-  isLoop,
-  fullscreen,
-  isActive,
-  playerCache,
-}: {
+type VideoSlideProps = {
   uri: string;
   isLoop: boolean;
   fullscreen: boolean;
   isActive: boolean;
   playerCache?: VideoPlayerCache;
-}) {
+};
+
+function VideoSlide(props: VideoSlideProps) {
+  // On web, Google Drive videos can't stream in an HTML5 <video>; use Drive's
+  // preview iframe instead. Native (and non-Drive URLs) use the player below.
+  const webPreviewUrl =
+    Platform.OS === "web" ? drivePreviewUrl(props.uri) : null;
+  if (webPreviewUrl) {
+    return <DriveVideoFrame url={webPreviewUrl} />;
+  }
+  return <NativeVideoSlide {...props} />;
+}
+
+function NativeVideoSlide({
+  uri,
+  isLoop,
+  fullscreen,
+  isActive,
+  playerCache,
+}: VideoSlideProps) {
   const resolvedUri = driveToDirectUrl(uri, { asDownload: true });
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -151,7 +166,7 @@ function ImageSlide({ uri }: { uri: string }) {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
-  const resolvedUri = driveToDirectUrl(uri, { asDownload: true });
+  const resolvedUri = driveImageUrl(uri);
   const sourceUri = `${resolvedUri}${resolvedUri.includes("?") ? "&" : "?"}retry=${retryNonce}`;
 
   return (

@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// De-identified teaching media: world-readable so the app can render images and
+// videos without per-request signing. Uploads happen through the Firebase
+// console (bypasses rules) or an authenticated admin custom claim.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    match /content/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

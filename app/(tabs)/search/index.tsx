@@ -1,16 +1,17 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { useContent } from '@/context/ContentProvider';
 import { Link } from 'expo-router';
 import Fuse from 'fuse.js';
 import { useMemo, useState } from 'react';
 import { FlatList, TextInput, TouchableOpacity, View } from 'react-native';
-import content from '../../../data/content';
 
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
+  const { content } = useContent();
 
   const items = useMemo(() => {
-    return content.categories.flatMap((c) =>
+    return (content?.categories ?? []).flatMap((c) =>
       c.subtopics.map((s) => ({
         id: `${c.id}:${s.id}`,
         title: s.title,
@@ -19,7 +20,7 @@ export default function SearchScreen() {
         subtopicId: s.id,
       }))
     );
-  }, []);
+  }, [content]);
 
   const fuse = useMemo(() => new Fuse(items, { keys: ['title', 'description'], threshold: 0.3 }), [items]);
   const results = query ? fuse.search(query).map((r) => r.item) : items.slice(0, 12);

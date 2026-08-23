@@ -1,11 +1,17 @@
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { useContent } from '@/context/ContentProvider';
 import { Link } from 'expo-router';
 import { FlatList, TouchableOpacity, View } from 'react-native';
-import content from '../../../data/content';
 
 export default function ProceduresIndex() {
-  const categories = content.categories;
+  const { content, loading } = useContent();
+  const categories = content?.categories ?? [];
+
+  if (!content && loading) {
+    return <LoadingScreen message="Loading procedures…" />;
+  }
 
   return (
     <ThemedView style={{ flex: 1 }}>
@@ -13,6 +19,11 @@ export default function ProceduresIndex() {
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8 }}
         data={categories}
+        ListEmptyComponent={
+          <View style={{ padding: 16 }}>
+            <ThemedText>No procedures available yet.</ThemedText>
+          </View>
+        }
         keyExtractor={(item) => item.id}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         renderItem={({ item }) => (

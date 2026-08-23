@@ -1,6 +1,31 @@
-# Media Migration Plan: Google Drive to CDN
+# Media Migration Plan: Google Drive to Firebase Storage
 
 This plan replaces Google Drive-hosted assets with a production-safe storage and delivery model.
+
+## Chosen approach (implemented)
+
+Because the media is **de-identified teaching content**, we use **Firebase Storage**
+with public read (`storage.rules`) and admin-only writes. No signed URLs or BAA
+are required. Storage download URLs are direct and render unchanged: the app
+passes any non-Drive URL straight through `driveToDirectUrl`
+([utils/drive.ts](../utils/drive.ts)), so a Storage URL works in both
+`<Image>` and `expo-video`.
+
+### Re-hosting workflow (gradual, no app changes needed)
+
+1. In the Firebase console, open **Storage** and upload the file under
+   `content/<category>/<subtopic>/<file>` (folders are created automatically).
+2. Click the uploaded file and copy its **download URL** (`...?alt=media&token=...`).
+3. In **Firestore**, open the matching slide document and paste the URL into the
+   `uri` field.
+4. The app picks up the change on next load. Drive links keep working until
+   replaced, so media can be migrated one slide at a time.
+
+See [content-editing-guide.md](content-editing-guide.md) for the full editor workflow.
+
+---
+
+## Original target architecture (reference)
 
 ## Why migrate
 

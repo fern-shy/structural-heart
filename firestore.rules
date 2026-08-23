@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// Content is de-identified educational material: world-readable.
+// Writes are denied to all clients. Edits happen through the Firebase console
+// (which bypasses these rules) or via an authenticated admin custom claim,
+// so a future in-app admin can be enabled without changing the data model.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /subtopics/{subtopicId} {
+        allow read: if true;
+        allow write: if isAdmin();
+
+        match /slides/{slideId} {
+          allow read: if true;
+          allow write: if isAdmin();
+        }
+      }
+    }
+  }
+}
