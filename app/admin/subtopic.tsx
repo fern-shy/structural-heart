@@ -299,6 +299,7 @@ function TypeToggle({
             paddingVertical: 8,
             borderRadius: 8,
             borderWidth: 1,
+            maxWidth: "100%",
             borderColor: value === t ? COLORS.primary : COLORS.cardBorder,
             backgroundColor: value === t ? COLORS.primary : "transparent",
           }}
@@ -424,7 +425,7 @@ function SlideForm({
           gap: 16,
         }}
       >
-        <View style={{ flex: 1, minWidth: 280, gap: 12 }}>
+        <View style={{ flex: 1, minWidth: 0, maxWidth: "100%", flexBasis: 280, gap: 12 }}>
           {type === "text" ? (
             <>
               <Field

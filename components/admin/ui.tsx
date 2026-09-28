@@ -30,7 +30,9 @@ export function AdminScreen({ children }: { children: ReactNode }) {
         alignItems: "center",
       }}
     >
-      <View style={{ width: "100%", maxWidth: 1100, gap: 16 }}>{children}</View>
+      <View style={{ width: "100%", maxWidth: 1100, minWidth: 0, gap: 16 }}>
+        {children}
+      </View>
     </ScrollView>
   );
 }
@@ -63,6 +65,9 @@ export function Card({ children }: { children: ReactNode }) {
         borderWidth: 1,
         borderRadius: 12,
         position: "relative",
+        width: "100%",
+        minWidth: 0,
+        overflow: "hidden",
         padding: 16,
         gap: 12,
       }}
@@ -145,7 +150,10 @@ export function Button({
         opacity: isDisabled ? 0.5 : 1,
         alignItems: "center",
         justifyContent: "center",
+        alignSelf: "flex-start",
+        maxWidth: "100%",
         flexDirection: "row",
+        flexShrink: 1,
         gap: 8,
       }}
     >
@@ -155,6 +163,7 @@ export function Button({
           color: COLORS.text,
           fontWeight: "600",
           fontSize: small ? 13 : 15,
+          flexShrink: 1,
         }}
       >
         {label}
@@ -171,7 +180,18 @@ export function Row({
   gap?: number;
 }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap }}>
+    <View
+      style={{
+        flexDirection: "row",
+        flexWrap: "wrap",
+        alignItems: "center",
+        rowGap: gap,
+        columnGap: gap,
+        gap,
+        minWidth: 0,
+        maxWidth: "100%",
+      }}
+    >
       {children}
     </View>
   );
