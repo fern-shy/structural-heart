@@ -22,10 +22,24 @@ slides. No Firebase console needed.
    npm run set-admin -- dad@example.com
    ```
 
-3. Open the editor:
+3. Turn on file uploads (Firebase Storage requires the pay-as-you-go **Blaze**
+   plan; this app's usage normally stays inside its no-cost tier):
+   - In the Firebase console, click **Upgrade** next to the plan name (bottom
+     left) and choose **Blaze**. When offered, set a budget alert (e.g. $5/month)
+     so you get an email if usage ever starts costing money.
+   - Open **Storage** -> **Get started**. For the location, pick **us-central1**,
+     **us-east1**, or **us-west1**: only those regions get the no-cost tier, and
+     the location can't be changed later.
+   - Deploy the upload rules:
+
+     ```bash
+     npm run deploy:rules
+     ```
+
+4. Open the editor:
    - Locally: `npx expo start`, press `w` to open web, then go to `/admin`
      (e.g. `http://localhost:8081/admin`).
-   - Or publish it as a real website (free on the Spark plan) so he can just
+   - Or publish it as a real website on Firebase Hosting so he can just
      bookmark a link:
 
      ```bash
@@ -42,11 +56,28 @@ slides. No Firebase console needed.
 - Sign in with the email/password from setup.
 - **Categories** page: add/rename/reorder/delete top-level sections; click **Open**
   to manage a category's procedures.
-- **Procedures** page: add procedures, write their description/long text, nest one
-  under another, reorder, and click **Edit slides**.
-- **Slides** page: add **Text**, **Image**, or **Video** slides. For image/video,
-  paste a Google Drive share link or any direct URL into the link field. Reorder
-  with the up/down arrows.
+- **Procedures** page: add procedures, write their description/long text, and
+  click **Edit slides**. To move a procedure, grab the dotted handle in its
+  card's top-right corner and drag it:
+  - drop it on a **line between two cards** to place it there (how far the line
+    is indented shows which level it lands on), or
+  - drop it **onto another procedure** to nest it inside (a blue
+    "Put inside …" label appears).
+
+  A procedure can't be dropped inside itself or its own sub-procedures. The ↑/↓
+  buttons still work for small reorders.
+- **Slides** page: add **Text**, **Image**, or **Video** slides. For images and
+  videos, **drag the file from your computer onto the dashed box** (or click the
+  box to choose a file). It uploads and fills in the link for you; pasting a
+  Google Drive link still works too. Limits: 25 MB per image, 300 MB per video.
+  MP4 videos play everywhere; iPhone `.mov` files may not play in Chrome or on
+  Android, so export as MP4 if the preview won't play.
+- **Previews:** the **Preview** panel beside the slide form shows exactly how the
+  slide will look on a phone before you save. **Preview all slides** (top right)
+  or a slide's **Preview** button lets you click through the finished procedure.
+- **Deleting** anything asks you to type **Yes** first and tells you what goes
+  with it (e.g. "the 5 procedures nested inside it"). Deletes can't be undone.
+  Deleting a slide does not delete its uploaded file from Storage.
 - Changes save to the same database the app reads, so they appear on next app load.
 
 Surgeons using the normal app never see any of this — the editor is behind login.

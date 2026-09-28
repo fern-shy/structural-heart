@@ -30,7 +30,7 @@ export function AdminScreen({ children }: { children: ReactNode }) {
         alignItems: "center",
       }}
     >
-      <View style={{ width: "100%", maxWidth: 820, gap: 16 }}>{children}</View>
+      <View style={{ width: "100%", maxWidth: 1100, gap: 16 }}>{children}</View>
     </ScrollView>
   );
 }
@@ -62,6 +62,7 @@ export function Card({ children }: { children: ReactNode }) {
         borderColor: COLORS.cardBorder,
         borderWidth: 1,
         borderRadius: 12,
+        position: "relative",
         padding: 16,
         gap: 12,
       }}

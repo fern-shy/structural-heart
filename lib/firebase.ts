@@ -47,6 +47,6 @@ export const storage = getStorage(app);
  * persistence (the editor is web-first), which is fine because surgeons never
  * authenticate.
  */
-export const auth: Auth = getAuth(app);
+export const auth: Auth | null = isFirebaseConfigured ? getAuth(app) : null;
 
 export default app;

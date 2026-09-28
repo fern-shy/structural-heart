@@ -1,25 +1,37 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useContent } from '@/context/ContentProvider';
+import type { Subtopic } from '@/types/content';
 import { Link } from 'expo-router';
 import Fuse from 'fuse.js';
 import { useMemo, useState } from 'react';
 import { FlatList, TextInput, TouchableOpacity, View } from 'react-native';
+
+type SearchItem = {
+  id: string;
+  title: string;
+  description?: string;
+  categoryId: string;
+  subtopicId: string;
+};
 
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const { content } = useContent();
 
   const items = useMemo(() => {
-    return (content?.categories ?? []).flatMap((c) =>
-      c.subtopics.map((s) => ({
-        id: `${c.id}:${s.id}`,
-        title: s.title,
-        description: s.description,
-        categoryId: c.id,
-        subtopicId: s.id,
-      }))
-    );
+    const flatten = (categoryId: string, list: Subtopic[]): SearchItem[] =>
+      list.flatMap((s) => [
+        {
+          id: `${categoryId}:${s.id}`,
+          title: s.title,
+          description: s.description,
+          categoryId,
+          subtopicId: s.id,
+        },
+        ...flatten(categoryId, s.children ?? []),
+      ]);
+    return (content?.categories ?? []).flatMap((c) => flatten(c.id, c.subtopics));
   }, [content]);
 
   const fuse = useMemo(() => new Fuse(items, { keys: ['title', 'description'], threshold: 0.3 }), [items]);

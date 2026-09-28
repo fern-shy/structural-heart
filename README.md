@@ -44,7 +44,15 @@ slides without touching Firestore directly.
 1. Create the editor account: Firebase console -> Authentication -> add a user
    (and enable the Email/Password provider).
 2. Grant it edit access: `npm run set-admin -- their@email.com`.
-3. Open the app on web (`npx expo start`, press `w`) and navigate to `/admin`.
+3. Upgrade the Firebase project to **Blaze** (pay-as-you-go; usage normally
+   stays inside the no-cost Storage tier) and enable Storage so the editor can
+   accept drag-and-drop image/video uploads. Then deploy rules:
+   `npm run deploy:rules`.
+4. Open the app on web (`npx expo start`, press `w`) and navigate to `/admin`.
+
+The editor asks you to type **Yes** before any delete, lets you drag procedures
+into one another, previews slides as they will look on a phone, and uploads
+files from the computer to Firebase Storage.
 
 See [`docs/content-editing-guide.md`](docs/content-editing-guide.md) for the full
 walkthrough. Editing is gated by the `admin` custom claim (see `firestore.rules`),

@@ -3,6 +3,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDocs,
   orderBy,
@@ -266,6 +267,28 @@ export async function persistSubtopicOrder(
   const batch = writeBatch(db);
   orderedIds.forEach((id, index) => {
     batch.update(doc(subtopicsCol(categoryId), id), { order: index });
+  });
+  await batch.commit();
+}
+
+/**
+ * Moves a subtopic under `parentId` (null = top level) and rewrites `order` for
+ * its new sibling group in one batch. `orderedSiblingIds` must include `id`.
+ */
+export async function moveSubtopic(
+  categoryId: string,
+  id: string,
+  parentId: string | null,
+  orderedSiblingIds: string[],
+): Promise<void> {
+  const batch = writeBatch(db);
+  orderedSiblingIds.forEach((siblingId, index) => {
+    batch.update(
+      doc(subtopicsCol(categoryId), siblingId),
+      siblingId === id
+        ? { order: index, parentId: parentId ?? deleteField() }
+        : { order: index },
+    );
   });
   await batch.commit();
 }

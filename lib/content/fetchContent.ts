@@ -11,7 +11,7 @@ import {
 
 type RawSubtopic = SubtopicDoc & { id: string };
 
-function docToSlide(id: string, d: SlideDoc): Slide | null {
+export function docToSlide(id: string, d: SlideDoc): Slide | null {
   switch (d.type) {
     case "text":
       if (!d.title && !d.content) return null;

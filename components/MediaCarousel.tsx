@@ -38,7 +38,7 @@ type VideoSlideProps = {
   playerCache?: VideoPlayerCache;
 };
 
-function VideoSlide(props: VideoSlideProps) {
+export function VideoSlide(props: VideoSlideProps) {
   // On web, Google Drive videos can't stream in an HTML5 <video>; use Drive's
   // preview iframe instead. Native (and non-Drive URLs) use the player below.
   const webPreviewUrl =
@@ -64,7 +64,8 @@ function NativeVideoSlide({
   const player = playerCache
     ? playerCache.getOrCreate(resolvedUri, (p) => {
         p.loop = isLoop;
-        p.muted = false;
+        // Browsers block unmuted autoplay; web viewers can unmute from fullscreen controls.
+        p.muted = Platform.OS === "web";
       })
     : null;
 
@@ -162,12 +163,14 @@ function NativeVideoSlide({
   );
 }
 
-function ImageSlide({ uri }: { uri: string }) {
+export function ImageSlide({ uri }: { uri: string }) {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
   const resolvedUri = driveImageUrl(uri);
-  const sourceUri = `${resolvedUri}${resolvedUri.includes("?") ? "&" : "?"}retry=${retryNonce}`;
+  const sourceUri = retryNonce
+    ? `${resolvedUri}${resolvedUri.includes("?") ? "&" : "?"}retry=${retryNonce}`
+    : resolvedUri;
 
   return (
     <View style={{ width: "100%", height: "100%", backgroundColor: "black" }}>
@@ -239,7 +242,7 @@ function ImageSlide({ uri }: { uri: string }) {
   );
 }
 
-function TextSlide({
+export function TextSlide({
   title,
   content,
   height,
@@ -281,7 +284,7 @@ function TextSlide({
   );
 }
 
-const MEDIA_HEIGHT = 300;
+export const MEDIA_HEIGHT = 300;
 
 const absoluteFill = {
   position: "absolute" as const,

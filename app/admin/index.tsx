@@ -8,17 +8,18 @@ import {
   PageTitle,
   Row,
 } from "@/components/admin/ui";
+import { useDeleteConfirmation } from "@/components/admin/ConfirmDelete";
 import { useAuth } from "@/context/AuthProvider";
 import {
   createCategory,
   deleteCategory,
   listCategories,
+  listSubtopics,
   persistCategoryOrder,
   slugify,
   updateCategory,
   type WithId,
 } from "@/lib/content/adminApi";
-import { confirmAsync } from "@/lib/confirm";
 import type { CategoryDoc } from "@/lib/content/schema";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
@@ -30,9 +31,9 @@ export default function AdminCategories() {
   const [items, setItems] = useState<WithId<CategoryDoc>[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { requestDelete, deleteDialog } = useDeleteConfirmation();
 
   const load = useCallback(async () => {
-    setLoading(true);
     setItems(await listCategories());
     setLoading(false);
   }, []);
@@ -53,17 +54,23 @@ export default function AdminCategories() {
   };
 
   const remove = async (c: WithId<CategoryDoc>) => {
-    const ok = await confirmAsync(
-      `Delete "${c.title}"?`,
-      "This permanently deletes the category and ALL its procedures and slides.",
-    );
-    if (!ok) return;
-    await deleteCategory(c.id);
-    await load();
+    const count = (await listSubtopics(c.id)).length;
+    requestDelete({
+      title: `Delete "${c.title}"?`,
+      message:
+        count > 0
+          ? `This permanently deletes the category, the ${count} procedure${count === 1 ? "" : "s"} inside it, and all of their slides. This cannot be undone.`
+          : "This permanently deletes the category. It has no procedures. This cannot be undone.",
+      action: async () => {
+        await deleteCategory(c.id);
+        await load();
+      },
+    });
   };
 
   return (
     <AdminScreen>
+      {deleteDialog}
       <Row gap={12}>
         <View style={{ flex: 1 }}>
           <PageTitle

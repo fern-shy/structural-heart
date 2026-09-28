@@ -1,3 +1,10 @@
+import { useDeleteConfirmation } from "@/components/admin/ConfirmDelete";
+import {
+  DRAG_AND_DROP_SUPPORTED,
+  DragHandle,
+  DropGap,
+  NestDropTarget,
+} from "@/components/admin/dnd";
 import {
   AdminScreen,
   Button,
@@ -12,32 +19,36 @@ import {
   createSubtopic,
   deleteSubtopic,
   listSubtopics,
+  moveSubtopic,
   persistSubtopicOrder,
   slugify,
   updateSubtopic,
   type WithId,
 } from "@/lib/content/adminApi";
 import type { SubtopicDoc } from "@/lib/content/schema";
-import { confirmAsync } from "@/lib/confirm";
 import {
   Stack,
   useFocusEffect,
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
+
+type Item = WithId<SubtopicDoc>;
 
 export default function AdminCategory() {
   const { categoryId } = useLocalSearchParams<{ categoryId: string }>();
   const router = useRouter();
-  const [items, setItems] = useState<WithId<SubtopicDoc>[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { requestDelete, deleteDialog } = useDeleteConfirmation();
 
   const load = useCallback(async () => {
     if (!categoryId) return;
-    setLoading(true);
     setItems(await listSubtopics(categoryId));
     setLoading(false);
   }, [categoryId]);
@@ -48,17 +59,72 @@ export default function AdminCategory() {
     }, [load]),
   );
 
-  const topLevel = useMemo(
-    () => items.filter((s) => !s.parentId).sort((a, b) => a.order - b.order),
+  const byId = useMemo(() => new Map(items.map((s) => [s.id, s])), [items]);
+  const childrenOf = useCallback(
+    (parentId: string | null) =>
+      items
+        .filter((s) => (s.parentId ?? null) === parentId)
+        .sort((a, b) => a.order - b.order),
     [items],
   );
-  const childrenOf = useCallback(
-    (id: string) =>
-      items.filter((s) => s.parentId === id).sort((a, b) => a.order - b.order),
-    [items],
+  const topLevel = useMemo(() => childrenOf(null), [childrenOf]);
+
+  /** True if `id` is `ancestorId` itself or nested anywhere beneath it. */
+  const isWithin = useCallback(
+    (id: string | null, ancestorId: string) => {
+      const seen = new Set<string>();
+      let current = id;
+      while (current && !seen.has(current)) {
+        if (current === ancestorId) return true;
+        seen.add(current);
+        current = byId.get(current)?.parentId ?? null;
+      }
+      return false;
+    },
+    [byId],
   );
 
-  const move = async (group: WithId<SubtopicDoc>[], index: number, dir: -1 | 1) => {
+  const canDropInto = (parentId: string | null) =>
+    dragId !== null && !isWithin(parentId, dragId);
+
+  /** Places the dragged procedure at `index` among the children of `parentId`. */
+  const moveTo = async (parentId: string | null, index: number) => {
+    const moving = dragId ? byId.get(dragId) : undefined;
+    setDragId(null);
+    if (!moving || isWithin(parentId, moving.id)) return;
+
+    const group = childrenOf(parentId);
+    const ordered = group.filter((s) => s.id !== moving.id);
+    const insertAt = group
+      .slice(0, index)
+      .filter((s) => s.id !== moving.id).length;
+    ordered.splice(insertAt, 0, moving);
+    const orderedIds = ordered.map((s) => s.id);
+
+    const unchanged =
+      (moving.parentId ?? null) === parentId &&
+      orderedIds.every((id, i) => group[i]?.id === id);
+    if (unchanged) return;
+
+    setError(null);
+    setItems((prev) =>
+      prev.map((s) => {
+        const order = orderedIds.indexOf(s.id);
+        if (order === -1) return s;
+        return s.id === moving.id
+          ? { ...s, order, parentId: parentId ?? undefined }
+          : { ...s, order };
+      }),
+    );
+    try {
+      await moveSubtopic(categoryId!, moving.id, parentId, orderedIds);
+    } catch {
+      setError("Could not move that procedure. Please try again.");
+    }
+    await load();
+  };
+
+  const move = async (group: Item[], index: number, dir: -1 | 1) => {
     const next = [...group];
     const target = index + dir;
     if (target < 0 || target >= next.length) return;
@@ -67,20 +133,48 @@ export default function AdminCategory() {
     await load();
   };
 
-  const remove = async (s: WithId<SubtopicDoc>) => {
-    const ok = await confirmAsync(
-      `Delete "${s.title}"?`,
-      "This permanently deletes the procedure, its slides, and any nested sub-procedures.",
-    );
-    if (!ok) return;
-    await deleteSubtopic(categoryId!, s.id);
-    await load();
+  const remove = (s: Item) => {
+    const nested = items.filter(
+      (other) => other.id !== s.id && isWithin(other.id, s.id),
+    ).length;
+    requestDelete({
+      title: `Delete "${s.title}"?`,
+      message:
+        nested > 0
+          ? `This permanently deletes the procedure, its slides, and the ${nested} procedure${nested === 1 ? "" : "s"} nested inside it (with their slides). This cannot be undone.`
+          : "This permanently deletes the procedure and all of its slides. This cannot be undone.",
+      action: async () => {
+        await deleteSubtopic(categoryId!, s.id);
+        await load();
+      },
+    });
   };
 
-  const renderNode = (s: WithId<SubtopicDoc>, group: WithId<SubtopicDoc>[], i: number, nested: boolean) => {
-    if (editingId === s.id) {
-      return (
-        <View key={s.id} style={{ marginLeft: nested ? 24 : 0 }}>
+  const renderGroup = (parentId: string | null, group: Item[]) => (
+    <View style={{ marginLeft: parentId ? 24 : 0 }}>
+      <DropGap
+        dragging={dragId !== null}
+        enabled={canDropInto(parentId)}
+        onDrop={() => moveTo(parentId, 0)}
+      />
+      {group.map((s, i) => (
+        <Fragment key={s.id}>
+          {renderNode(s, group, i)}
+          <DropGap
+            dragging={dragId !== null}
+            enabled={canDropInto(parentId)}
+            onDrop={() => moveTo(parentId, i + 1)}
+          />
+        </Fragment>
+      ))}
+    </View>
+  );
+
+  const renderNode = (s: Item, group: Item[], i: number) => {
+    const kids = childrenOf(s.id);
+    return (
+      <View>
+        {editingId === s.id ? (
           <EditSubtopicCard
             categoryId={categoryId!}
             subtopic={s}
@@ -90,68 +184,87 @@ export default function AdminCategory() {
             }}
             onCancel={() => setEditingId(null)}
           />
-        </View>
-      );
-    }
-    const kids = childrenOf(s.id);
-    return (
-      <View key={s.id} style={{ marginLeft: nested ? 24 : 0, gap: 12 }}>
-        <Card>
-          <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: "700" }}>
-            {s.title}
-          </Text>
-          {s.description ? <Muted>{s.description}</Muted> : null}
-          <Row gap={8}>
-            <Button
-              label="Edit slides"
-              small
-              onPress={() =>
-                router.push({
-                  pathname: "/admin/subtopic",
-                  params: { categoryId: categoryId!, subtopicId: s.id },
-                })
-              }
-            />
-            <Button
-              label="Edit"
-              small
-              variant="secondary"
-              onPress={() => setEditingId(s.id)}
-            />
-            <Button
-              label="↑"
-              small
-              variant="secondary"
-              disabled={i === 0}
-              onPress={() => move(group, i, -1)}
-            />
-            <Button
-              label="↓"
-              small
-              variant="secondary"
-              disabled={i === group.length - 1}
-              onPress={() => move(group, i, 1)}
-            />
-            <View style={{ flex: 1 }} />
-            <Button
-              label="Delete"
-              small
-              variant="danger"
-              onPress={() => remove(s)}
-            />
-          </Row>
-        </Card>
-        {kids.map((k, ki) => renderNode(k, kids, ki, true))}
+        ) : (
+          <NestDropTarget
+            enabled={canDropInto(s.id)}
+            dimmed={dragId === s.id}
+            label={`Put inside "${s.title}"`}
+            onDrop={() => moveTo(s.id, kids.length)}
+          >
+            <Card>
+              <DragHandle
+                onDragStart={() => setDragId(s.id)}
+                onDragEnd={() => setDragId(null)}
+              />
+              <Text
+                style={{
+                  color: COLORS.text,
+                  fontSize: 16,
+                  fontWeight: "700",
+                  paddingRight: DRAG_AND_DROP_SUPPORTED ? 32 : 0,
+                }}
+              >
+                {s.title}
+              </Text>
+              {s.description ? <Muted>{s.description}</Muted> : null}
+              <Row gap={8}>
+                <Button
+                  label="Edit slides"
+                  small
+                  onPress={() =>
+                    router.push({
+                      pathname: "/admin/subtopic",
+                      params: { categoryId: categoryId!, subtopicId: s.id },
+                    })
+                  }
+                />
+                <Button
+                  label="Edit"
+                  small
+                  variant="secondary"
+                  onPress={() => setEditingId(s.id)}
+                />
+                <Button
+                  label="↑"
+                  small
+                  variant="secondary"
+                  disabled={i === 0}
+                  onPress={() => move(group, i, -1)}
+                />
+                <Button
+                  label="↓"
+                  small
+                  variant="secondary"
+                  disabled={i === group.length - 1}
+                  onPress={() => move(group, i, 1)}
+                />
+                <View style={{ flex: 1 }} />
+                <Button
+                  label="Delete"
+                  small
+                  variant="danger"
+                  onPress={() => remove(s)}
+                />
+              </Row>
+            </Card>
+          </NestDropTarget>
+        )}
+        {kids.length > 0 ? renderGroup(s.id, kids) : null}
       </View>
     );
   };
 
   return (
     <AdminScreen>
+      {deleteDialog}
       <Stack.Screen options={{ title: "Procedures" }} />
       <PageTitle
         title="Procedures"
-        subtitle="Each procedure holds its own slides. Nest one under another to group them."
+        subtitle={
+          DRAG_AND_DROP_SUPPORTED
+            ? "Each procedure holds its own slides. Drag the dotted handle in a card's top-right corner to move it: drop it on a line to place it there, or onto another procedure to nest it inside."
+            : "Each procedure holds its own slides. Nest one under another to group them."
+        }
       />
 
       <CreateSubtopicCard
@@ -160,12 +273,14 @@ export default function AdminCategory() {
         onCreated={load}
       />
 
+      {error ? <Text style={{ color: COLORS.danger }}>{error}</Text> : null}
+
       {loading ? (
         <ActivityIndicator color={COLORS.primary} />
       ) : topLevel.length === 0 ? (
         <Muted>No procedures yet. Add one above.</Muted>
       ) : (
-        topLevel.map((s, i) => renderNode(s, topLevel, i, false))
+        renderGroup(null, topLevel)
       )}
     </AdminScreen>
   );

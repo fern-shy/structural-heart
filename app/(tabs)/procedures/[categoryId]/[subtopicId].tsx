@@ -3,6 +3,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useContent } from "@/context/ContentProvider";
 import { useOrientationFullscreen } from "@/hooks/useOrientationFullscreen";
+import type { Subtopic } from "@/types/content";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -18,6 +19,18 @@ import {
 } from "react-native";
 import MediaCarousel from "../../../../components/MediaCarousel";
 
+function findSubtopic(
+  list: Subtopic[],
+  id: string | undefined,
+): Subtopic | undefined {
+  for (const s of list) {
+    if (s.id === id) return s;
+    const found = s.children ? findSubtopic(s.children, id) : undefined;
+    if (found) return found;
+  }
+  return undefined;
+}
+
 export default function SubtopicDetailScreen() {
   const { categoryId, subtopicId } = useLocalSearchParams<{
     categoryId: string;
@@ -25,19 +38,9 @@ export default function SubtopicDetailScreen() {
   }>();
   const router = useRouter();
   const { content, loading } = useContent();
-  const { subtopic } = useMemo(() => {
+  const subtopic = useMemo(() => {
     const category = content?.categories.find((c) => c.id === categoryId);
-    const direct = category?.subtopics.find((s) => s.id === subtopicId);
-    if (direct)
-      return {
-        subtopic: direct,
-        parent: undefined as undefined | typeof direct,
-      };
-    const container = category?.subtopics.find((s) =>
-      s.children?.some((c) => c.id === subtopicId),
-    );
-    const child = container?.children?.find((c) => c.id === subtopicId);
-    return { subtopic: child, parent: container };
+    return category ? findSubtopic(category.subtopics, subtopicId) : undefined;
   }, [content, categoryId, subtopicId]);
 
   const [fullscreen, setFullscreen] = useState<{ index: number } | null>(null);
@@ -205,6 +208,32 @@ export default function SubtopicDetailScreen() {
                   >
                     {subtopic.longText}
                   </ThemedText>
+                </View>
+              ) : null}
+              {subtopic.children?.length ? (
+                <View style={{ padding: 16, gap: 12 }}>
+                  <ThemedText type="subtitle">Sub-procedures</ThemedText>
+                  {subtopic.children.map((child) => (
+                    <TouchableOpacity
+                      key={child.id}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/procedures/[categoryId]/[subtopicId]",
+                          params: { categoryId, subtopicId: child.id },
+                        })
+                      }
+                      style={{
+                        padding: 16,
+                        borderRadius: 12,
+                        backgroundColor: "rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      <ThemedText type="defaultSemiBold">{child.title}</ThemedText>
+                      {child.description ? (
+                        <ThemedText>{child.description}</ThemedText>
+                      ) : null}
+                    </TouchableOpacity>
+                  ))}
                 </View>
               ) : null}
             </ScrollView>
