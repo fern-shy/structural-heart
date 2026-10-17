@@ -32,10 +32,12 @@ function findSubtopic(
 }
 
 export default function SubtopicDetailScreen() {
-  const { categoryId, subtopicId } = useLocalSearchParams<{
+  const { categoryId, subtopicId, slide } = useLocalSearchParams<{
     categoryId: string;
     subtopicId: string;
+    slide?: string;
   }>();
+  const slideParam = Array.isArray(slide) ? slide[0] : slide;
   const router = useRouter();
   const { content, loading } = useContent();
   const subtopic = useMemo(() => {
@@ -44,7 +46,19 @@ export default function SubtopicDetailScreen() {
   }, [content, categoryId, subtopicId]);
 
   const [fullscreen, setFullscreen] = useState<{ index: number } | null>(null);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(() => {
+    const requested = Number(slideParam);
+    return Number.isFinite(requested) && requested >= 0 ? Math.floor(requested) : 0;
+  });
+
+  useEffect(() => {
+    const requested = Number(slideParam);
+    setCurrentSlideIndex(
+      slideParam != null && Number.isFinite(requested) && requested >= 0
+        ? Math.floor(requested)
+        : 0,
+    );
+  }, [subtopicId, slideParam]);
 
   const playerCacheRef = useRef<VideoPlayerCache | null>(null);
   if (!playerCacheRef.current) {
@@ -179,10 +193,11 @@ export default function SubtopicDetailScreen() {
           <View style={{ flex: 1, opacity: fullscreen ? 0 : 1 }}>
             <MediaCarousel
               slides={subtopic.slides}
+              startIndex={currentSlideIndex}
               syncToIndex={!fullscreen ? currentSlideIndex : undefined}
               playerCache={playerCacheRef.current!}
               onOpenFullscreen={(index: number) => setFullscreen({ index })}
-              onIndexChange={handleIndexChange}
+              onIndexChange={fullscreen ? undefined : handleIndexChange}
             />
             <ScrollView
               style={{ flex: 1 }}
