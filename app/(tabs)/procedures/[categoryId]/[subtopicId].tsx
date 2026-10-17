@@ -1,6 +1,9 @@
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { useContent } from "@/context/ContentProvider";
 import { useOrientationFullscreen } from "@/hooks/useOrientationFullscreen";
+import type { Subtopic } from "@/types/content";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -8,37 +11,54 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Modal,
+  Platform,
   ScrollView,
   StatusBar,
   TouchableOpacity,
   View,
 } from "react-native";
 import MediaCarousel from "../../../../components/MediaCarousel";
-import content from "../../../../data/content";
+
+function findSubtopic(
+  list: Subtopic[],
+  id: string | undefined,
+): Subtopic | undefined {
+  for (const s of list) {
+    if (s.id === id) return s;
+    const found = s.children ? findSubtopic(s.children, id) : undefined;
+    if (found) return found;
+  }
+  return undefined;
+}
 
 export default function SubtopicDetailScreen() {
-  const { categoryId, subtopicId } = useLocalSearchParams<{
+  const { categoryId, subtopicId, slide } = useLocalSearchParams<{
     categoryId: string;
     subtopicId: string;
+    slide?: string;
   }>();
+  const slideParam = Array.isArray(slide) ? slide[0] : slide;
   const router = useRouter();
-  const { subtopic } = useMemo(() => {
-    const category = content.categories.find((c) => c.id === categoryId);
-    const direct = category?.subtopics.find((s) => s.id === subtopicId);
-    if (direct)
-      return {
-        subtopic: direct,
-        parent: undefined as undefined | typeof direct,
-      };
-    const container = category?.subtopics.find((s) =>
-      s.children?.some((c) => c.id === subtopicId),
-    );
-    const child = container?.children?.find((c) => c.id === subtopicId);
-    return { subtopic: child, parent: container };
-  }, [categoryId, subtopicId]);
+  const { content, loading } = useContent();
+  const subtopic = useMemo(() => {
+    const category = content?.categories.find((c) => c.id === categoryId);
+    return category ? findSubtopic(category.subtopics, subtopicId) : undefined;
+  }, [content, categoryId, subtopicId]);
 
   const [fullscreen, setFullscreen] = useState<{ index: number } | null>(null);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(() => {
+    const requested = Number(slideParam);
+    return Number.isFinite(requested) && requested >= 0 ? Math.floor(requested) : 0;
+  });
+
+  useEffect(() => {
+    const requested = Number(slideParam);
+    setCurrentSlideIndex(
+      slideParam != null && Number.isFinite(requested) && requested >= 0
+        ? Math.floor(requested)
+        : 0,
+    );
+  }, [subtopicId, slideParam]);
 
   const playerCacheRef = useRef<VideoPlayerCache | null>(null);
   if (!playerCacheRef.current) {
@@ -53,12 +73,17 @@ export default function SubtopicDetailScreen() {
   const currentSlideType = currentSlide?.type;
 
   useEffect(() => {
-    ScreenOrientation.unlockAsync();
     const cache = playerCacheRef.current;
+    // Screen-orientation locking is native-only; on web these reject.
+    if (Platform.OS !== "web") {
+      ScreenOrientation.unlockAsync().catch(() => {});
+    }
     return () => {
-      ScreenOrientation.lockAsync(
-        ScreenOrientation.OrientationLock.PORTRAIT_UP,
-      );
+      if (Platform.OS !== "web") {
+        ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.PORTRAIT_UP,
+        ).catch(() => {});
+      }
       cache?.releaseAll();
     };
   }, []);
@@ -77,6 +102,10 @@ export default function SubtopicDetailScreen() {
     exitFullscreen,
     !!fullscreen,
   );
+
+  if (!content && loading) {
+    return <LoadingScreen />;
+  }
 
   if (!subtopic) {
     return (
@@ -139,7 +168,7 @@ export default function SubtopicDetailScreen() {
             </TouchableOpacity>
           )}
           ListEmptyComponent={
-            <ThemedText>No subitems found. Check data/content.ts.</ThemedText>
+            <ThemedText>No subitems found.</ThemedText>
           }
         />
       </ThemedView>
@@ -164,10 +193,11 @@ export default function SubtopicDetailScreen() {
           <View style={{ flex: 1, opacity: fullscreen ? 0 : 1 }}>
             <MediaCarousel
               slides={subtopic.slides}
+              startIndex={currentSlideIndex}
               syncToIndex={!fullscreen ? currentSlideIndex : undefined}
               playerCache={playerCacheRef.current!}
               onOpenFullscreen={(index: number) => setFullscreen({ index })}
-              onIndexChange={handleIndexChange}
+              onIndexChange={fullscreen ? undefined : handleIndexChange}
             />
             <ScrollView
               style={{ flex: 1 }}
@@ -193,6 +223,32 @@ export default function SubtopicDetailScreen() {
                   >
                     {subtopic.longText}
                   </ThemedText>
+                </View>
+              ) : null}
+              {subtopic.children?.length ? (
+                <View style={{ padding: 16, gap: 12 }}>
+                  <ThemedText type="subtitle">Sub-procedures</ThemedText>
+                  {subtopic.children.map((child) => (
+                    <TouchableOpacity
+                      key={child.id}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/procedures/[categoryId]/[subtopicId]",
+                          params: { categoryId, subtopicId: child.id },
+                        })
+                      }
+                      style={{
+                        padding: 16,
+                        borderRadius: 12,
+                        backgroundColor: "rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      <ThemedText type="defaultSemiBold">{child.title}</ThemedText>
+                      {child.description ? (
+                        <ThemedText>{child.description}</ThemedText>
+                      ) : null}
+                    </TouchableOpacity>
+                  ))}
                 </View>
               ) : null}
             </ScrollView>
@@ -222,7 +278,7 @@ export default function SubtopicDetailScreen() {
         </>
       ) : (
         <View style={{ padding: 16 }}>
-          <ThemedText>No media found. Check data/content.ts.</ThemedText>
+          <ThemedText>No media found for this procedure yet.</ThemedText>
         </View>
       )}
     </ThemedView>

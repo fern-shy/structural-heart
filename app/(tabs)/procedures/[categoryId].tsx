@@ -1,12 +1,18 @@
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { useContent } from '@/context/ContentProvider';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { FlatList, TouchableOpacity, View } from 'react-native';
-import content from '../../../data/content';
 
 export default function CategoryScreen() {
   const { categoryId } = useLocalSearchParams<{ categoryId: string }>();
-  const category = content.categories.find((c) => c.id === categoryId);
+  const { content, loading } = useContent();
+  const category = content?.categories.find((c) => c.id === categoryId);
+
+  if (!content && loading) {
+    return <LoadingScreen />;
+  }
 
   if (!category) {
     return (

@@ -1,25 +1,15 @@
-import type { Slide } from "@/types/media";
+import type { Category, Content, Subtopic } from "@/types/content";
 
-export type Subtopic = {
-  id: string;
-  title: string;
-  description?: string;
-  longText?: string;
-  slides?: Slide[];
-  children?: Subtopic[];
-};
+export type { Category, Content, Subtopic };
 
-export type Category = {
-  id: string;
-  title: string;
-  subtitle?: string;
-  subtopics: Subtopic[];
-};
-
-export type Content = {
-  categories: Category[];
-};
-
+/**
+ * Bundled last-known-good content snapshot.
+ *
+ * Content is now sourced from Firestore at runtime (see lib/content). This file
+ * is retained as the offline/first-run fallback so the app still renders in
+ * low-connectivity environments before the first successful fetch. Regenerate it
+ * from Firestore when the published content changes meaningfully.
+ */
 const content: Content = {
   categories: [
     {

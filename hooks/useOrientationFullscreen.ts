@@ -1,5 +1,6 @@
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 
 type SlideType = 'image' | 'video' | 'text';
 
@@ -18,6 +19,9 @@ export function useOrientationFullscreen(
   isFullscreenRef.current = isFullscreen;
 
   useEffect(() => {
+    // Orientation-driven fullscreen is a native-only behavior; the web has no
+    // device orientation lock and these APIs reject there.
+    if (Platform.OS === 'web') return;
     if (!currentSlideType || currentSlideType === 'text') return;
 
     const subscription = ScreenOrientation.addOrientationChangeListener((event) => {

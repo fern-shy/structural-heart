@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// De-identified teaching media: world-readable so the app can render images and
+// videos without per-request signing. Uploads come from the content editor and
+// require the admin custom claim. Size limits must match MAX_UPLOAD_BYTES in
+// lib/content/mediaUpload.ts.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function isAllowedMedia() {
+      return (request.resource.contentType.matches('image/.*')
+                && request.resource.size < 25 * 1024 * 1024)
+          || (request.resource.contentType.matches('video/.*')
+                && request.resource.size < 300 * 1024 * 1024);
+    }
+
+    match /content/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isAllowedMedia();
+      allow delete: if isAdmin();
+    }
+  }
+}
