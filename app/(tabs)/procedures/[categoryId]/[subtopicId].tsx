@@ -7,7 +7,7 @@ import type { Subtopic } from "@/types/content";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as ScreenOrientation from "expo-screen-orientation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -31,6 +31,11 @@ function findSubtopic(
   return undefined;
 }
 
+function parseSlideParam(param: string | undefined) {
+  const requested = Number(param);
+  return Number.isFinite(requested) && requested >= 0 ? Math.floor(requested) : 0;
+}
+
 export default function SubtopicDetailScreen() {
   const { categoryId, subtopicId, slide } = useLocalSearchParams<{
     categoryId: string;
@@ -45,35 +50,32 @@ export default function SubtopicDetailScreen() {
     return category ? findSubtopic(category.subtopics, subtopicId) : undefined;
   }, [content, categoryId, subtopicId]);
 
-  const [fullscreen, setFullscreen] = useState<{ index: number } | null>(null);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(() => {
-    const requested = Number(slideParam);
-    return Number.isFinite(requested) && requested >= 0 ? Math.floor(requested) : 0;
-  });
-
-  useEffect(() => {
-    const requested = Number(slideParam);
-    setCurrentSlideIndex(
-      slideParam != null && Number.isFinite(requested) && requested >= 0
-        ? Math.floor(requested)
-        : 0,
-    );
-  }, [subtopicId, slideParam]);
-
-  const playerCacheRef = useRef<VideoPlayerCache | null>(null);
-  if (!playerCacheRef.current) {
-    playerCacheRef.current = new VideoPlayerCache();
+  const [fullscreen, setFullscreen] = useState(false);
+  // The single source of truth for which slide is showing. Both the inline
+  // and fullscreen carousels render this index and report swipes back to it.
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(() =>
+    parseSlideParam(slideParam),
+  );
+  // Reset to the linked slide when the route changes (e.g. a search result
+  // for another slide of this procedure).
+  const routeSlideKey = `${subtopicId}:${slideParam}`;
+  const [lastRouteSlideKey, setLastRouteSlideKey] = useState(routeSlideKey);
+  if (routeSlideKey !== lastRouteSlideKey) {
+    setLastRouteSlideKey(routeSlideKey);
+    setCurrentSlideIndex(parseSlideParam(slideParam));
   }
 
-  const handleIndexChange = useCallback((index: number) => {
-    setCurrentSlideIndex(index);
-  }, []);
+  const [playerCache] = useState(() => new VideoPlayerCache());
 
+  // Keep the stored index in range (a ?slide= link can point past the end).
+  const slideCount = subtopic?.slides?.length ?? 0;
+  if (slideCount > 0 && currentSlideIndex > slideCount - 1) {
+    setCurrentSlideIndex(slideCount - 1);
+  }
   const currentSlide = subtopic?.slides?.[currentSlideIndex];
   const currentSlideType = currentSlide?.type;
 
   useEffect(() => {
-    const cache = playerCacheRef.current;
     // Screen-orientation locking is native-only; on web these reject.
     if (Platform.OS !== "web") {
       ScreenOrientation.unlockAsync().catch(() => {});
@@ -84,27 +86,26 @@ export default function SubtopicDetailScreen() {
           ScreenOrientation.OrientationLock.PORTRAIT_UP,
         ).catch(() => {});
       }
-      cache?.releaseAll();
+      playerCache.releaseAll();
     };
-  }, []);
+  }, [playerCache]);
 
-  const enterFullscreen = useCallback(() => {
-    setFullscreen({ index: currentSlideIndex });
-  }, [currentSlideIndex]);
+  useOrientationFullscreen(currentSlideType, fullscreen, setFullscreen);
 
-  const exitFullscreen = useCallback(() => {
-    setFullscreen(null);
-  }, []);
+  const exitFullscreen = () => setFullscreen(false);
 
-  useOrientationFullscreen(
-    currentSlideType,
-    enterFullscreen,
-    exitFullscreen,
-    !!fullscreen,
-  );
+  const openFullscreenAt = (index: number) => {
+    setCurrentSlideIndex(index);
+    setFullscreen(true);
+  };
 
   if (!content && loading) {
-    return <LoadingScreen />;
+    return (
+      <>
+        <Stack.Screen options={{ title: "", headerLargeTitle: false }} />
+        <LoadingScreen />
+      </>
+    );
   }
 
   if (!subtopic) {
@@ -193,11 +194,11 @@ export default function SubtopicDetailScreen() {
           <View style={{ flex: 1, opacity: fullscreen ? 0 : 1 }}>
             <MediaCarousel
               slides={subtopic.slides}
-              startIndex={currentSlideIndex}
-              syncToIndex={!fullscreen ? currentSlideIndex : undefined}
-              playerCache={playerCacheRef.current!}
-              onOpenFullscreen={(index: number) => setFullscreen({ index })}
-              onIndexChange={fullscreen ? undefined : handleIndexChange}
+              index={currentSlideIndex}
+              onIndexChange={setCurrentSlideIndex}
+              active={!fullscreen}
+              playerCache={playerCache}
+              onOpenFullscreen={openFullscreenAt}
             />
             <ScrollView
               style={{ flex: 1 }}
@@ -254,7 +255,7 @@ export default function SubtopicDetailScreen() {
             </ScrollView>
           </View>
           <Modal
-            visible={!!fullscreen}
+            visible={fullscreen}
             animationType="none"
             supportedOrientations={[
               "portrait",
@@ -263,16 +264,20 @@ export default function SubtopicDetailScreen() {
             ]}
             onRequestClose={exitFullscreen}
           >
-            <StatusBar hidden={!!fullscreen} />
+            <StatusBar hidden={fullscreen} />
             <ThemedView style={{ flex: 1, backgroundColor: "black" }}>
-              <MediaCarousel
-                slides={subtopic.slides}
-                startIndex={fullscreen?.index ?? 0}
-                fullscreen
-                playerCache={playerCacheRef.current!}
-                onIndexChange={handleIndexChange}
-                onClose={exitFullscreen}
-              />
+              {/* Unmount as soon as fullscreen ends so a dismissing modal
+                  can't report rotation scroll events as swipes. */}
+              {fullscreen ? (
+                <MediaCarousel
+                  slides={subtopic.slides}
+                  index={currentSlideIndex}
+                  onIndexChange={setCurrentSlideIndex}
+                  fullscreen
+                  playerCache={playerCache}
+                  onClose={exitFullscreen}
+                />
+              ) : null}
             </ThemedView>
           </Modal>
         </>

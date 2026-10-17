@@ -21,12 +21,14 @@ import { IconSymbol } from "./ui/IconSymbol";
 
 type Props = {
   slides: Slide[];
-  startIndex?: number;
-  syncToIndex?: number;
+  /** The slide to show. The parent owns this; swipes report via onIndexChange. */
+  index: number;
+  onIndexChange: (index: number) => void;
+  /** When false, scroll events are ignored (e.g. while hidden behind fullscreen). */
+  active?: boolean;
   fullscreen?: boolean;
   playerCache?: VideoPlayerCache;
   onOpenFullscreen?: (index: number) => void;
-  onIndexChange?: (index: number) => void;
   onClose?: () => void;
 };
 
@@ -301,100 +303,62 @@ function clampIndex(index: number, count: number) {
 
 export default function MediaCarousel({
   slides,
-  startIndex = 0,
-  syncToIndex,
+  index: requestedIndex,
+  onIndexChange,
+  active = true,
   fullscreen = false,
   playerCache,
   onOpenFullscreen,
-  onIndexChange,
   onClose,
 }: Props) {
   const { width, height: windowHeight } = useWindowDimensions();
   const listRef = useRef<FlatList<Slide>>(null);
   const insets = useSafeAreaInsets();
-  const [index, setIndex] = useState(() => clampIndex(startIndex, slides.length));
-  const indexRef = useRef(index);
-  const widthRef = useRef(width);
-  const onIndexChangeRef = useRef(onIndexChange);
-  onIndexChangeRef.current = onIndexChange;
-  // Ignore scroll events while rotation swaps the page width. The old pixel
-  // offset divided by the new width lands on a different slide.
-  const suppressScrollRef = useRef(true);
-  const lastExternalIndex = useRef<number | undefined>(undefined);
+  const index = clampIndex(requestedIndex, slides.length);
+  // The page the list is scrolled to (or heading to). It only differs from
+  // `index` when the parent changes the index and the list must catch up.
+  const shownIndexRef = useRef(index);
+  const layoutRef = useRef({ width, active });
+  // Set when the user starts a drag, cleared on any programmatic scroll.
+  // Rotation and relayout fire scroll-end events too, and their offsets are
+  // measured against the old page width, so they must never move the index.
+  const userDragRef = useRef(false);
+  // react-native-web only emits onScroll, so web commits once scrolling settles.
+  const webScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const pendingExternalScroll = useRef(false);
-  if (syncToIndex !== undefined && syncToIndex !== lastExternalIndex.current) {
-    lastExternalIndex.current = syncToIndex;
-    const next = clampIndex(syncToIndex, slides.length);
-    if (next !== indexRef.current) pendingExternalScroll.current = true;
-    indexRef.current = next;
-    if (index !== next) setIndex(next);
-  }
-
-  const widthChanged = widthRef.current !== width;
-  if (widthChanged) {
-    widthRef.current = width;
-    suppressScrollRef.current = true;
-  }
+  useEffect(
+    () => () => {
+      if (webScrollTimerRef.current) clearTimeout(webScrollTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
-    suppressScrollRef.current = true;
+    const layoutChanged =
+      layoutRef.current.width !== width || layoutRef.current.active !== active;
+    layoutRef.current = { width, active };
+    if (!layoutChanged && shownIndexRef.current === index) return;
+    shownIndexRef.current = index;
+    userDragRef.current = false;
+    if (slides.length === 0) return;
     const frame = requestAnimationFrame(() => {
-      if (slides.length === 0) return;
       listRef.current?.scrollToOffset({
-        offset: indexRef.current * widthRef.current,
+        offset: index * width,
         animated: false,
       });
     });
-    const timer = setTimeout(() => {
-      suppressScrollRef.current = false;
-    }, 450);
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(timer);
-    };
-  }, [width, slides.length]);
-
-  useEffect(() => {
-    if (!pendingExternalScroll.current) return;
-    pendingExternalScroll.current = false;
-    suppressScrollRef.current = true;
-    const frame = requestAnimationFrame(() => {
-      listRef.current?.scrollToOffset({
-        offset: indexRef.current * widthRef.current,
-        animated: false,
-      });
-    });
-    const timer = setTimeout(() => {
-      suppressScrollRef.current = false;
-    }, 450);
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(timer);
-    };
-  }, [syncToIndex, slides.length]);
+    return () => cancelAnimationFrame(frame);
+  }, [index, width, active, slides.length]);
 
   const commitFromOffset = (offset: number, pageWidth: number) => {
-    if (suppressScrollRef.current || pageWidth <= 0 || slides.length === 0) return;
-    // A rotation event can report the previous page width. Ignore it.
-    if (Math.abs(pageWidth - widthRef.current) > 1) return;
+    if (!active || pageWidth <= 0 || slides.length === 0) return;
+    // Web has no drag events; its offsets come from the settled onScroll.
+    if (Platform.OS !== "web" && !userDragRef.current) return;
+    if (Math.abs(pageWidth - width) > 1) return;
     const next = clampIndex(Math.round(offset / pageWidth), slides.length);
-    if (next === indexRef.current) return;
-    indexRef.current = next;
-    setIndex(next);
-    onIndexChangeRef.current?.(next);
-  };
-
-  const goTo = (nextIndex: number) => {
-    const next = clampIndex(nextIndex, slides.length);
-    if (next === indexRef.current) return;
-    indexRef.current = next;
-    setIndex(next);
-    onIndexChangeRef.current?.(next);
-    listRef.current?.scrollToOffset({
-      offset: next * widthRef.current,
-      animated: true,
-    });
+    if (next === shownIndexRef.current) return;
+    shownIndexRef.current = next;
+    onIndexChange(next);
   };
 
   const containerHeight = fullscreen ? windowHeight : MEDIA_HEIGHT;
@@ -411,7 +375,7 @@ export default function MediaCarousel({
         snapToAlignment="start"
         decelerationRate="fast"
         disableIntervalMomentum
-        initialScrollIndex={slides.length > 0 ? indexRef.current : undefined}
+        initialScrollIndex={slides.length > 0 ? index : undefined}
         getItemLayout={(_, i) => ({
           length: width,
           offset: width * i,
@@ -420,11 +384,31 @@ export default function MediaCarousel({
         keyExtractor={(item) => item.id}
         windowSize={5}
         maxToRenderPerBatch={3}
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={Platform.OS === "web" ? 16 : undefined}
+        onScroll={
+          Platform.OS === "web"
+            ? (e) => {
+                const offset = e.nativeEvent.contentOffset.x;
+                const pageWidth = e.nativeEvent.layoutMeasurement.width;
+                if (webScrollTimerRef.current) {
+                  clearTimeout(webScrollTimerRef.current);
+                }
+                webScrollTimerRef.current = setTimeout(() => {
+                  commitFromOffset(offset, pageWidth);
+                }, 120);
+              }
+            : undefined
+        }
+        onScrollBeginDrag={() => {
+          userDragRef.current = true;
+        }}
         onMomentumScrollEnd={(e) => {
           commitFromOffset(
             e.nativeEvent.contentOffset.x,
             e.nativeEvent.layoutMeasurement.width,
           );
+          userDragRef.current = false;
         }}
         onScrollEndDrag={(e) => {
           const velocity = e.nativeEvent.velocity?.x ?? 0;
@@ -436,7 +420,7 @@ export default function MediaCarousel({
         }}
         onScrollToIndexFailed={(info) => {
           listRef.current?.scrollToOffset({
-            offset: info.index * widthRef.current,
+            offset: info.index * width,
             animated: false,
           });
         }}
@@ -478,59 +462,6 @@ export default function MediaCarousel({
           );
         }}
       />
-      {slides.length > 1 ? (
-        <View
-          pointerEvents="box-none"
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: fullscreen ? Math.max(insets.bottom, 12) : 10,
-            alignItems: "center",
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              borderRadius: 999,
-              backgroundColor: "rgba(0,0,0,0.55)",
-            }}
-          >
-            <TouchableOpacity
-              onPress={() => goTo(index - 1)}
-              disabled={index <= 0}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityLabel="Previous slide"
-            >
-              <ThemedText style={{ color: index <= 0 ? "rgba(255,255,255,0.35)" : "#fff", fontSize: 18 }}>
-                ‹
-              </ThemedText>
-            </TouchableOpacity>
-            <ThemedText style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>
-              {index + 1} / {slides.length} · Swipe
-            </ThemedText>
-            <TouchableOpacity
-              onPress={() => goTo(index + 1)}
-              disabled={index >= slides.length - 1}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityLabel="Next slide"
-            >
-              <ThemedText
-                style={{
-                  color: index >= slides.length - 1 ? "rgba(255,255,255,0.35)" : "#fff",
-                  fontSize: 18,
-                }}
-              >
-                ›
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
       {fullscreen && onClose ? (
         <TouchableOpacity
           onPress={onClose}
