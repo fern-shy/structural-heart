@@ -359,6 +359,9 @@ export default function MediaCarousel({
   // Set when the user starts a drag, cleared on any programmatic scroll.
   // Rotation and relayout fire scroll-end events too, and their offsets are
   // measured against the old page width, so they must never move the index.
+  // On web it is set by touch, wheel, pointer or key input on the list, since
+  // a freshly mounted list (e.g. opening fullscreen) can report a scroll at
+  // offset 0 before it reaches its initial slide.
   const userDragRef = useRef(false);
   // react-native-web only emits onScroll, so web commits once scrolling settles.
   const webScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -369,6 +372,24 @@ export default function MediaCarousel({
     },
     [],
   );
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const node = (listRef.current as any)?.getScrollableNode?.() as
+      | HTMLElement
+      | undefined;
+    if (!node) return;
+    const markUserScroll = () => {
+      userDragRef.current = true;
+    };
+    const events = ["touchstart", "touchmove", "wheel", "pointerdown", "keydown"];
+    events.forEach((e) =>
+      node.addEventListener(e, markUserScroll, { passive: true }),
+    );
+    return () =>
+      events.forEach((e) => node.removeEventListener(e, markUserScroll));
+    // The list remounts when the width changes (see its key).
+  }, [width]);
 
   useEffect(() => {
     const layoutChanged =
@@ -389,8 +410,7 @@ export default function MediaCarousel({
 
   const commitFromOffset = (offset: number, pageWidth: number) => {
     if (!active || pageWidth <= 0 || slides.length === 0) return;
-    // Web has no drag events; its offsets come from the settled onScroll.
-    if (Platform.OS !== "web" && !userDragRef.current) return;
+    if (!userDragRef.current) return;
     if (Math.abs(pageWidth - width) > 1) return;
     const next = clampIndex(Math.round(offset / pageWidth), slides.length);
     if (next === shownIndexRef.current) return;
@@ -403,6 +423,7 @@ export default function MediaCarousel({
   // Web arrows scroll like a swipe, so the settled onScroll commits the index.
   const scrollWebBy = (delta: number) => {
     const next = clampIndex(shownIndexRef.current + delta, slides.length);
+    userDragRef.current = true;
     listRef.current?.scrollToOffset({ offset: next * width, animated: true });
   };
 
@@ -443,6 +464,7 @@ export default function MediaCarousel({
                 }
                 webScrollTimerRef.current = setTimeout(() => {
                   commitFromOffset(offset, pageWidth);
+                  userDragRef.current = false;
                 }, 120);
               }
             : undefined

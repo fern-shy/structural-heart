@@ -10,15 +10,31 @@
     "public": "dist",
     "cleanUrls": true,
     "trailingSlash": false,
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": ["firebase.json", "**/.*"],
+    "rewrites": [
+      {
+        "source": "/procedures/*/*",
+        "destination": "/procedures/[categoryId]/[subtopicId].html"
+      },
+      {
+        "source": "/procedures/*",
+        "destination": "/procedures/[categoryId].html"
+      }
+    ],
     "headers": [
       {
-        "source": "**/*.html",
+        "source": "**",
         "headers": [
           {
             "key": "Cache-Control",
             "value": "no-cache, no-store, must-revalidate"
           }
+        ]
+      },
+      {
+        "source": "/assets/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
         ]
       },
       {
