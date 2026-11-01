@@ -7,7 +7,7 @@ import {
 import { Colors } from "@/constants/Colors";
 import type { Slide } from "@/types/media";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Modal, Text, View } from "react-native";
 import { Button, COLORS, Row } from "./ui";
 
@@ -17,13 +17,9 @@ const BEZEL = 6;
 export const PHONE_FRAME_WIDTH = SCREEN_WIDTH + BEZEL * 2;
 
 function usePlayerCache(): VideoPlayerCache {
-  const ref = useRef<VideoPlayerCache | null>(null);
-  if (!ref.current) ref.current = new VideoPlayerCache();
-  useEffect(() => {
-    const cache = ref.current;
-    return () => cache?.releaseAll();
-  }, []);
-  return ref.current;
+  const [cache] = useState(() => new VideoPlayerCache());
+  useEffect(() => () => cache.releaseAll(), [cache]);
+  return cache;
 }
 
 function PhoneFrame({ children }: { children: ReactNode }) {

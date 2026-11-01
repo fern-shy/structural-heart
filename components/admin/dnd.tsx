@@ -21,11 +21,14 @@ function useDropHover(enabled: boolean, onDrop: () => void) {
   const depth = useRef(0);
   const [hovered, setHovered] = useState(false);
 
+  // Reset hover state when dragging is disabled (state adjusted during render).
+  const [prevEnabled, setPrevEnabled] = useState(enabled);
+  if (enabled !== prevEnabled) {
+    setPrevEnabled(enabled);
+    if (!enabled) setHovered(false);
+  }
   useEffect(() => {
-    if (!enabled) {
-      depth.current = 0;
-      setHovered(false);
-    }
+    if (!enabled) depth.current = 0;
   }, [enabled]);
 
   const handlers = {

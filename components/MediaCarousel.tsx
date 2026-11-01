@@ -2,7 +2,7 @@ import type { Slide } from "@/types/media";
 import { driveImageUrl, drivePreviewUrl, driveToDirectUrl } from "@/utils/drive";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
 import { Image } from "expo-image";
-import { VideoView } from "expo-video";
+import { VideoView, type VideoPlayer } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -59,8 +59,11 @@ function NativeVideoSlide({
   playerCache,
 }: VideoSlideProps) {
   const resolvedUri = driveToDirectUrl(uri, { asDownload: true });
-  const [ready, setReady] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+  const [observed, setObserved] = useState<{
+    player: VideoPlayer;
+    ready: boolean;
+    loadError: boolean;
+  } | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
 
   const player = playerCache
@@ -71,24 +74,24 @@ function NativeVideoSlide({
       })
     : null;
 
+  // Until the player emits a status change, derive state from its current status.
+  const current =
+    observed && observed.player === player
+      ? observed
+      : {
+          ready: player?.status === "readyToPlay",
+          loadError: player?.status === "error",
+        };
+  const { ready, loadError } = current;
+
   useEffect(() => {
     if (!player) return;
-
-    if (player.status === "readyToPlay") {
-      setReady(true);
-      setLoadError(false);
-    } else if (player.status === "error") {
-      setLoadError(true);
-    }
-
     const sub = player.addListener("statusChange", ({ status }) => {
       if (status === "readyToPlay") {
-        setReady(true);
-        setLoadError(false);
+        setObserved({ player, ready: true, loadError: false });
       }
       if (status === "error") {
-        setReady(false);
-        setLoadError(true);
+        setObserved({ player, ready: false, loadError: true });
       }
     });
     return () => sub.remove();
@@ -143,8 +146,7 @@ function NativeVideoSlide({
           </ThemedText>
           <TouchableOpacity
             onPress={() => {
-              setReady(false);
-              setLoadError(false);
+              setObserved(null);
               playerCache?.release(resolvedUri);
               setRetryNonce((n) => n + 1);
             }}
