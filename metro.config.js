@@ -3,11 +3,26 @@ const { getDefaultConfig } = require("expo/metro-config");
 
 const config = getDefaultConfig(__dirname);
 
-// The Firebase JS SDK ships some modules as .cjs and relies on conditional
-// "exports" maps that Metro's package-exports resolution mishandles, producing
-// errors like "Component auth has not been registered yet". Allowing .cjs and
-// disabling unstable package exports is the documented workaround.
+// Firebase still ships .cjs files. Package exports stay on for the rest of the
+// app (SDK 58 resolves expo/dom/global through them) and are turned off only
+// for Firebase, which mis-registers Auth when Metro follows its export map.
 config.resolver.sourceExts.push("cjs");
-config.resolver.unstable_enablePackageExports = false;
+
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const isFirebase =
+    moduleName === "firebase" ||
+    moduleName.startsWith("firebase/") ||
+    moduleName.startsWith("@firebase/");
+
+  if (isFirebase) {
+    return context.resolveRequest(
+      { ...context, unstable_enablePackageExports: false },
+      moduleName,
+      platform,
+    );
+  }
+
+  return context.resolveRequest(context, moduleName, platform);
+};
 
 module.exports = config;

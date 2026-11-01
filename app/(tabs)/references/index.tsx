@@ -47,17 +47,17 @@ export default function ReferencesScreen() {
         }}
       >
         <ThemedText style={{ fontSize: 18, lineHeight: 26, paddingTop: 12 }}>{guideTagline}</ThemedText>
-        <Section title="Author" children={authorCopy} />
+        <Section title="Author">{authorCopy}</Section>
         <View style={{ gap: 12 }}>
           <ThemedText type="subtitle" style={{ paddingHorizontal: 4 }}>
             Changelog
           </ThemedText>
           {changelog.map((entry) => (
-            <Section key={entry.version} title={entry.version} children={entry.items} />
+            <Section key={entry.version} title={entry.version}>{entry.items}</Section>
           ))}
         </View>
-        <Section title="Contact" children={contactCopy} />
-        <Section title="Legal" children={legalCopy} />
+        <Section title="Contact">{contactCopy}</Section>
+        <Section title="Legal">{legalCopy}</Section>
       </ScrollView>
     </ThemedView>
   );
