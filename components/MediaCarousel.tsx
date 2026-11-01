@@ -37,6 +37,8 @@ type VideoSlideProps = {
   isLoop: boolean;
   fullscreen: boolean;
   isActive: boolean;
+  /** False while this carousel is hidden behind the fullscreen one. */
+  carouselActive?: boolean;
   playerCache?: VideoPlayerCache;
 };
 
@@ -56,6 +58,7 @@ function NativeVideoSlide({
   isLoop,
   fullscreen,
   isActive,
+  carouselActive = true,
   playerCache,
 }: VideoSlideProps) {
   const resolvedUri = driveToDirectUrl(uri, { asDownload: true });
@@ -100,12 +103,20 @@ function NativeVideoSlide({
   useEffect(() => {
     if (!player) return;
     if (loadError) return;
-    if (isActive) {
-      player.play();
-    } else {
+    if (!isActive) {
       player.pause();
+      return;
     }
-  }, [isActive, loadError, player]);
+    // The hidden inline slide shares its player with the fullscreen one, so
+    // it leaves playback alone until fullscreen closes.
+    if (!carouselActive) return;
+    player.play();
+    // On web, closing fullscreen removes its <video>; the browser pauses it a
+    // moment later and the shared player mirrors that pause here.
+    if (Platform.OS !== "web") return;
+    const timer = setTimeout(() => player.play(), 100);
+    return () => clearTimeout(timer);
+  }, [isActive, carouselActive, loadError, player]);
 
   if (!player) return null;
 
@@ -116,6 +127,9 @@ function NativeVideoSlide({
         style={{ width: "100%", height: "100%" }}
         contentFit="contain"
         nativeControls={fullscreen}
+        // Without playsinline, iOS Safari takes over the whole screen with its
+        // own player the moment a slide autoplays.
+        playsInline
       />
       {!ready && !loadError && (
         <View
@@ -298,6 +312,27 @@ const absoluteFill = {
   bottom: 0,
 };
 
+// Web-only CSS scroll snapping. snap-stop: always keeps a fast flick from
+// skipping past slides, matching native paging.
+const webSnapContainerStyle = { scrollSnapType: "x mandatory" } as object;
+const webSnapStyle =
+  Platform.OS === "web"
+    ? ({ scrollSnapAlign: "start", scrollSnapStop: "always" } as object)
+    : null;
+
+const webArrowStyle = {
+  position: "absolute" as const,
+  top: "50%" as const,
+  marginTop: -22,
+  width: 44,
+  height: 44,
+  borderRadius: 22,
+  justifyContent: "center" as const,
+  alignItems: "center" as const,
+  backgroundColor: "rgba(0,0,0,0.45)",
+  zIndex: 50,
+};
+
 function clampIndex(index: number, count: number) {
   if (count <= 0) return 0;
   return Math.max(0, Math.min(count - 1, index));
@@ -365,6 +400,12 @@ export default function MediaCarousel({
 
   const containerHeight = fullscreen ? windowHeight : MEDIA_HEIGHT;
 
+  // Web arrows scroll like a swipe, so the settled onScroll commits the index.
+  const scrollWebBy = (delta: number) => {
+    const next = clampIndex(shownIndexRef.current + delta, slides.length);
+    listRef.current?.scrollToOffset({ offset: next * width, animated: true });
+  };
+
   return (
     <View style={{ width: "100%", height: containerHeight }}>
       <FlatList
@@ -372,7 +413,11 @@ export default function MediaCarousel({
         key={Math.round(width)}
         data={slides}
         horizontal
-        pagingEnabled
+        // react-native-web's pagingEnabled puts a snap point on every list
+        // child, including the virtualization spacers, so flicks can skip
+        // slides or snap back to a spacer's edge. Web snaps on each slide
+        // instead (see webSnapStyle).
+        pagingEnabled={Platform.OS !== "web"}
         snapToInterval={width}
         snapToAlignment="start"
         decelerationRate="fast"
@@ -426,11 +471,11 @@ export default function MediaCarousel({
             animated: false,
           });
         }}
-        style={{ flex: 1 }}
+        style={[{ flex: 1 }, Platform.OS === "web" && webSnapContainerStyle]}
         renderItem={({ item, index: itemIndex }) => {
           if (item.type === "text") {
             return (
-              <View style={{ width, height: containerHeight }}>
+              <View style={[{ width, height: containerHeight }, webSnapStyle]}>
                 <TextSlide
                   title={item.title}
                   content={item.content}
@@ -447,7 +492,7 @@ export default function MediaCarousel({
                 if (!fullscreen && onOpenFullscreen)
                   onOpenFullscreen(itemIndex);
               }}
-              style={{ width, height: containerHeight }}
+              style={[{ width, height: containerHeight }, webSnapStyle]}
             >
               {item.type === "image" ? (
                 <ImageSlide uri={item.uri} />
@@ -457,6 +502,7 @@ export default function MediaCarousel({
                   isLoop={item.isLoop ?? true}
                   fullscreen={fullscreen}
                   isActive={itemIndex === index}
+                  carouselActive={active}
                   playerCache={playerCache}
                 />
               )}
@@ -464,6 +510,28 @@ export default function MediaCarousel({
           );
         }}
       />
+      {Platform.OS === "web" && slides.length > 1 ? (
+        <>
+          {index > 0 ? (
+            <TouchableOpacity
+              accessibilityLabel="Previous slide"
+              onPress={() => scrollWebBy(-1)}
+              style={[webArrowStyle, { left: 8 }]}
+            >
+              <IconSymbol size={28} name="chevron.left" color="#fff" />
+            </TouchableOpacity>
+          ) : null}
+          {index < slides.length - 1 ? (
+            <TouchableOpacity
+              accessibilityLabel="Next slide"
+              onPress={() => scrollWebBy(1)}
+              style={[webArrowStyle, { right: 8 }]}
+            >
+              <IconSymbol size={28} name="chevron.right" color="#fff" />
+            </TouchableOpacity>
+          ) : null}
+        </>
+      ) : null}
       {fullscreen && onClose ? (
         <TouchableOpacity
           onPress={onClose}
