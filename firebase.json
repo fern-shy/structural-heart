@@ -11,6 +11,16 @@
     "cleanUrls": true,
     "trailingSlash": false,
     "ignore": ["firebase.json", "**/.*"],
+    "rewrites": [
+      {
+        "source": "/procedures/*/*",
+        "destination": "/procedures/[categoryId]/[subtopicId].html"
+      },
+      {
+        "source": "/procedures/*",
+        "destination": "/procedures/[categoryId].html"
+      }
+    ],
     "headers": [
       {
         "source": "**/*.html",
