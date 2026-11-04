@@ -16,6 +16,7 @@ export const Colors = {
     tabIconDefault: '#3C434A',
     tabIconSelected: tintColorLight,
     card: 'rgba(0,0,0,0.05)',
+    progressTrack: '#E2E5E8',
   },
   dark: {
     text: '#ECEDEE',
@@ -25,5 +26,6 @@ export const Colors = {
     tabIconDefault: '#D5D8DC',
     tabIconSelected: tintColorDark,
     card: 'rgba(255,255,255,0.06)',
+    progressTrack: '#2C2F31',
   },
 };

@@ -19,6 +19,7 @@ import {
   View,
 } from "react-native";
 import MediaCarousel from "../../../../components/MediaCarousel";
+import { SlideProgressBar } from "@/components/SlideProgressBar";
 
 function findSubtopic(
   list: Subtopic[],
@@ -194,6 +195,10 @@ export default function SubtopicDetailScreen() {
       {subtopic?.slides ? (
         <>
           <View style={{ flex: 1, opacity: fullscreen ? 0 : 1 }}>
+            <SlideProgressBar
+              index={currentSlideIndex}
+              count={subtopic.slides.length}
+            />
             <MediaCarousel
               slides={subtopic.slides}
               index={currentSlideIndex}

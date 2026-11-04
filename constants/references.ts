@@ -24,6 +24,7 @@ export const changelog: Release[] = [
     items: [
       "References lists the authors and a contact email.",
       "The app now opens in light mode, with a Dark mode switch on References. Text slides use dark text on white.",
+      "A thin bar under the header shows where you are in a procedure's slides.",
     ],
   },
   {
