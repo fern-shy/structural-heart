@@ -498,8 +498,25 @@ export default function MediaCarousel({
                 }
                 webScrollTimerRef.current = setTimeout(() => {
                   webArrowTargetRef.current = null;
-                  commitFromOffset(offset, pageWidth);
-                  userDragRef.current = false;
+                  if (userDragRef.current) {
+                    commitFromOffset(offset, pageWidth);
+                    userDragRef.current = false;
+                    return;
+                  }
+                  // The browser moved the list without the user (Safari can
+                  // reset a newly opened list to the first slide). Put it
+                  // back on the current slide.
+                  const target = shownIndexRef.current * width;
+                  if (
+                    active &&
+                    Math.abs(pageWidth - width) <= 1 &&
+                    Math.abs(offset - target) > 1
+                  ) {
+                    listRef.current?.scrollToOffset({
+                      offset: target,
+                      animated: false,
+                    });
+                  }
                 }, 120);
               }
             : undefined
