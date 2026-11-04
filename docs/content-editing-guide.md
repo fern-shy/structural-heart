@@ -204,3 +204,17 @@ want room to insert things later.
   (`image`, `video`, or `text`) and that `order` is a **number**, not text.
 - The app keeps a copy of the last content it saw, so it still works offline and
   updates automatically once it's back online.
+
+---
+
+## Cutting a release (developer)
+
+The References tab shows one changelog entry per release and the installed
+version number.
+
+1. Add the new entry at the top of `changelog` in
+   [constants/references.ts](../constants/references.ts), with user-facing
+   bullets for what changed.
+2. Set `version` in `app.json` to the same number (e.g. `1.1.0`).
+3. Commit, then tag it: `git tag v1.1.0 && git push origin v1.1.0`.
+4. Deploy web (`npm run deploy`) and build native as usual.
