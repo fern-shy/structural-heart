@@ -335,6 +335,9 @@ const webArrowStyle = {
   zIndex: 50,
 };
 
+/** Slides on each side of the current one that render their media on web. */
+const WEB_MEDIA_RADIUS = 2;
+
 function clampIndex(index: number, count: number) {
   if (count <= 0) return 0;
   return Math.max(0, Math.min(count - 1, index));
@@ -372,6 +375,9 @@ export default function MediaCarousel({
   // initialScrollIndex alone isn't reliable in Safari, which can leave a
   // freshly opened fullscreen list on the first slide.
   const needsInitialScrollRef = useRef(true);
+  // Web arrows: the slide the last arrow click is heading to, so rapid clicks
+  // keep advancing instead of repeating the same target mid-animation.
+  const webArrowTargetRef = useRef<number | null>(null);
 
   useEffect(
     () => () => {
@@ -411,6 +417,7 @@ export default function MediaCarousel({
     }
     shownIndexRef.current = index;
     userDragRef.current = false;
+    webArrowTargetRef.current = null;
     if (slides.length === 0) return;
     const frame = requestAnimationFrame(() => {
       // Cleared here rather than above so a cancelled frame (e.g. React
@@ -438,7 +445,9 @@ export default function MediaCarousel({
 
   // Web arrows scroll like a swipe, so the settled onScroll commits the index.
   const scrollWebBy = (delta: number) => {
-    const next = clampIndex(shownIndexRef.current + delta, slides.length);
+    const from = webArrowTargetRef.current ?? shownIndexRef.current;
+    const next = clampIndex(from + delta, slides.length);
+    webArrowTargetRef.current = next;
     userDragRef.current = true;
     listRef.current?.scrollToOffset({ offset: next * width, animated: true });
   };
@@ -466,8 +475,17 @@ export default function MediaCarousel({
           index: i,
         })}
         keyExtractor={(item) => item.id}
-        windowSize={5}
-        maxToRenderPerBatch={3}
+        // On web every slide keeps a cell (see renderItem), so the browser
+        // always has a snap point to land on. Virtualized spacers leave
+        // gaps that Safari can't snap into, so long jumps (e.g. leaving
+        // fullscreen several slides on) stall short of the target.
+        {...(Platform.OS === "web"
+          ? {
+              initialNumToRender: slides.length,
+              maxToRenderPerBatch: slides.length,
+              windowSize: slides.length * 2 + 1,
+            }
+          : { windowSize: 5, maxToRenderPerBatch: 3 })}
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={Platform.OS === "web" ? 16 : undefined}
         onScroll={
@@ -479,25 +497,9 @@ export default function MediaCarousel({
                   clearTimeout(webScrollTimerRef.current);
                 }
                 webScrollTimerRef.current = setTimeout(() => {
-                  if (userDragRef.current) {
-                    commitFromOffset(offset, pageWidth);
-                    userDragRef.current = false;
-                    return;
-                  }
-                  // The browser moved the list without the user (Safari can
-                  // reset a newly opened list to the first slide). Put it
-                  // back on the current slide.
-                  const target = shownIndexRef.current * width;
-                  if (
-                    active &&
-                    Math.abs(pageWidth - width) <= 1 &&
-                    Math.abs(offset - target) > 1
-                  ) {
-                    listRef.current?.scrollToOffset({
-                      offset: target,
-                      animated: false,
-                    });
-                  }
+                  webArrowTargetRef.current = null;
+                  commitFromOffset(offset, pageWidth);
+                  userDragRef.current = false;
                 }, 120);
               }
             : undefined
@@ -528,6 +530,21 @@ export default function MediaCarousel({
         }}
         style={[{ flex: 1 }, Platform.OS === "web" && webSnapContainerStyle]}
         renderItem={({ item, index: itemIndex }) => {
+          // Web: far-away slides are an empty cell until the user gets close,
+          // so media only loads around the current slide.
+          if (
+            Platform.OS === "web" &&
+            Math.abs(itemIndex - index) > WEB_MEDIA_RADIUS
+          ) {
+            return (
+              <View
+                style={[
+                  { width, height: containerHeight, backgroundColor: "black" },
+                  webSnapStyle,
+                ]}
+              />
+            );
+          }
           const report: SlideReportInfo | undefined = reportContext && {
             ...reportContext,
             slideNumber: itemIndex + 1,
