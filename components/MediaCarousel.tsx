@@ -1,7 +1,12 @@
 import type { Slide } from "@/types/media";
-import { driveImageUrl, drivePreviewUrl, driveToDirectUrl } from "@/utils/drive";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
+import {
+  SLIDE_LOAD_TIMEOUT_MS,
+  SlideErrorBoundary,
+  SlideFallback,
+  type SlideReportInfo,
+} from "./SlideFallback";
 import { Image } from "expo-image";
 import { VideoView, type VideoPlayer } from "expo-video";
 import { useEffect, useRef, useState } from "react";
@@ -16,7 +21,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import DriveVideoFrame from "./DriveVideoFrame";
 import { ThemedText } from "./ThemedText";
 import { IconSymbol } from "./ui/IconSymbol";
 
@@ -31,6 +35,8 @@ type Props = {
   playerCache?: VideoPlayerCache;
   onOpenFullscreen?: (index: number) => void;
   onClose?: () => void;
+  /** Identifies the procedure in "Report problem" emails. */
+  reportContext?: { procedure: string; path: string };
 };
 
 type VideoSlideProps = {
@@ -41,37 +47,30 @@ type VideoSlideProps = {
   /** False while this carousel is hidden behind the fullscreen one. */
   carouselActive?: boolean;
   playerCache?: VideoPlayerCache;
+  report?: SlideReportInfo;
 };
 
-export function VideoSlide(props: VideoSlideProps) {
-  // On web, Google Drive videos can't stream in an HTML5 <video>; use Drive's
-  // preview iframe instead. Native (and non-Drive URLs) use the player below.
-  const webPreviewUrl =
-    Platform.OS === "web" ? drivePreviewUrl(props.uri) : null;
-  if (webPreviewUrl) {
-    return <DriveVideoFrame url={webPreviewUrl} />;
-  }
-  return <NativeVideoSlide {...props} />;
-}
+type VideoState = {
+  player: VideoPlayer;
+  ready: boolean;
+  loadError: boolean;
+  problem?: string;
+};
 
-function NativeVideoSlide({
+export function VideoSlide({
   uri,
   isLoop,
   fullscreen,
   isActive,
   carouselActive = true,
   playerCache,
+  report,
 }: VideoSlideProps) {
-  const resolvedUri = driveToDirectUrl(uri, { asDownload: true });
-  const [observed, setObserved] = useState<{
-    player: VideoPlayer;
-    ready: boolean;
-    loadError: boolean;
-  } | null>(null);
+  const [observed, setObserved] = useState<VideoState | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
 
   const player = playerCache
-    ? playerCache.getOrCreate(resolvedUri, (p) => {
+    ? playerCache.getOrCreate(uri, (p) => {
         p.loop = isLoop;
         // Browsers block unmuted autoplay; web viewers can unmute from fullscreen controls.
         p.muted = Platform.OS === "web";
@@ -85,21 +84,43 @@ function NativeVideoSlide({
       : {
           ready: player?.status === "readyToPlay",
           loadError: player?.status === "error",
+          problem: undefined,
         };
-  const { ready, loadError } = current;
+  const { ready, loadError, problem } = current;
 
   useEffect(() => {
     if (!player) return;
-    const sub = player.addListener("statusChange", ({ status }) => {
+    const sub = player.addListener("statusChange", ({ status, error }) => {
       if (status === "readyToPlay") {
         setObserved({ player, ready: true, loadError: false });
       }
       if (status === "error") {
-        setObserved({ player, ready: false, loadError: true });
+        setObserved({
+          player,
+          ready: false,
+          loadError: true,
+          problem: `Video error: ${error?.message ?? "unknown"}`,
+        });
       }
     });
     return () => sub.remove();
   }, [player, retryNonce]);
+
+  // A video that never becomes playable shows the fallback instead of an
+  // endless spinner. Only the slide on screen is timed; if it does load late,
+  // the readyToPlay event above clears the fallback.
+  useEffect(() => {
+    if (!player || ready || loadError || !isActive || !carouselActive) return;
+    const timer = setTimeout(() => {
+      setObserved({
+        player,
+        ready: false,
+        loadError: true,
+        problem: `Video still loading after ${SLIDE_LOAD_TIMEOUT_MS / 1000}s`,
+      });
+    }, SLIDE_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [player, ready, loadError, isActive, carouselActive]);
 
   useEffect(() => {
     if (!player) return;
@@ -156,51 +177,42 @@ function NativeVideoSlide({
         </View>
       )}
       {loadError && (
-        <View
-          style={{
-            ...absoluteFill,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: "black",
-            paddingHorizontal: 24,
+        <SlideFallback
+          problem={problem ?? "Video failed to load"}
+          onRetry={() => {
+            setObserved(null);
+            playerCache?.release(uri);
+            setRetryNonce((n) => n + 1);
           }}
-        >
-          <ThemedText
-            style={{ color: "#fff", textAlign: "center", marginBottom: 12 }}
-          >
-            Video failed to load.
-          </ThemedText>
-          <TouchableOpacity
-            onPress={() => {
-              setObserved(null);
-              playerCache?.release(resolvedUri);
-              setRetryNonce((n) => n + 1);
-            }}
-            style={{
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 8,
-              backgroundColor: "rgba(255,255,255,0.2)",
-            }}
-          >
-            <ThemedText style={{ color: "#fff", fontWeight: "600" }}>
-              Retry
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
+          report={report}
+        />
       )}
     </View>
   );
 }
 
-export function ImageSlide({ uri }: { uri: string }) {
+export function ImageSlide({
+  uri,
+  report,
+}: {
+  uri: string;
+  report?: SlideReportInfo;
+}) {
   const [loading, setLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
-  const resolvedUri = driveImageUrl(uri);
   const sourceUri = retryNonce
-    ? `${resolvedUri}${resolvedUri.includes("?") ? "&" : "?"}retry=${retryNonce}`
-    : resolvedUri;
+    ? `${uri}${uri.includes("?") ? "&" : "?"}retry=${retryNonce}`
+    : uri;
+
+  useEffect(() => {
+    if (!loading || problem) return;
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setProblem(`Image still loading after ${SLIDE_LOAD_TIMEOUT_MS / 1000}s`);
+    }, SLIDE_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [loading, problem, retryNonce]);
 
   return (
     <View style={{ width: "100%", height: "100%", backgroundColor: "black" }}>
@@ -210,19 +222,19 @@ export function ImageSlide({ uri }: { uri: string }) {
         contentFit="contain"
         onLoadStart={() => {
           setLoading(true);
-          setHasError(false);
+          setProblem(null);
         }}
         onLoad={() => {
           setLoading(false);
-          setHasError(false);
+          setProblem(null);
         }}
-        onError={() => {
+        onError={(e) => {
           setLoading(false);
-          setHasError(true);
+          setProblem(`Image error: ${e.error}`);
         }}
         style={{ width: "100%", height: "100%", backgroundColor: "black" }}
       />
-      {loading && !hasError ? (
+      {loading && !problem ? (
         <View
           style={{
             ...absoluteFill,
@@ -234,39 +246,16 @@ export function ImageSlide({ uri }: { uri: string }) {
           <ActivityIndicator size="large" color="#ffffff" />
         </View>
       ) : null}
-      {hasError ? (
-        <View
-          style={{
-            ...absoluteFill,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: "black",
-            paddingHorizontal: 24,
+      {problem ? (
+        <SlideFallback
+          problem={problem}
+          onRetry={() => {
+            setLoading(true);
+            setProblem(null);
+            setRetryNonce((n) => n + 1);
           }}
-        >
-          <ThemedText
-            style={{ color: "#fff", textAlign: "center", marginBottom: 12 }}
-          >
-            Image failed to load.
-          </ThemedText>
-          <TouchableOpacity
-            onPress={() => {
-              setLoading(true);
-              setHasError(false);
-              setRetryNonce((n) => n + 1);
-            }}
-            style={{
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 8,
-              backgroundColor: "rgba(255,255,255,0.2)",
-            }}
-          >
-            <ThemedText style={{ color: "#fff", fontWeight: "600" }}>
-              Retry
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
+          report={report}
+        />
       ) : null}
     </View>
   );
@@ -360,6 +349,7 @@ export default function MediaCarousel({
   playerCache,
   onOpenFullscreen,
   onClose,
+  reportContext,
 }: Props) {
   const { width, height: windowHeight } = useWindowDimensions();
   const listRef = useRef<FlatList<Slide>>(null);
@@ -508,14 +498,32 @@ export default function MediaCarousel({
         }}
         style={[{ flex: 1 }, Platform.OS === "web" && webSnapContainerStyle]}
         renderItem={({ item, index: itemIndex }) => {
-          if (item.type === "text") {
+          const report: SlideReportInfo | undefined = reportContext && {
+            ...reportContext,
+            slideNumber: itemIndex + 1,
+            slideCount: slides.length,
+            slideType: item.type,
+            uri: "uri" in item ? item.uri : undefined,
+          };
+
+          if (item.type === "text" || item.type === "unavailable") {
             return (
               <View style={[{ width, height: containerHeight }, webSnapStyle]}>
-                <TextSlide
-                  title={item.title}
-                  content={item.content}
-                  height={containerHeight}
-                />
+                <SlideErrorBoundary report={report}>
+                  {item.type === "text" ? (
+                    <TextSlide
+                      title={item.title}
+                      content={item.content}
+                      height={containerHeight}
+                    />
+                  ) : (
+                    <View
+                      style={{ width: "100%", height: "100%", backgroundColor: "black" }}
+                    >
+                      <SlideFallback problem={item.reason} report={report} />
+                    </View>
+                  )}
+                </SlideErrorBoundary>
               </View>
             );
           }
@@ -529,18 +537,21 @@ export default function MediaCarousel({
               }}
               style={[{ width, height: containerHeight }, webSnapStyle]}
             >
-              {item.type === "image" ? (
-                <ImageSlide uri={item.uri} />
-              ) : (
-                <VideoSlide
-                  uri={item.uri}
-                  isLoop={item.isLoop ?? true}
-                  fullscreen={fullscreen}
-                  isActive={itemIndex === index}
-                  carouselActive={active}
-                  playerCache={playerCache}
-                />
-              )}
+              <SlideErrorBoundary report={report}>
+                {item.type === "image" ? (
+                  <ImageSlide uri={item.uri} report={report} />
+                ) : (
+                  <VideoSlide
+                    uri={item.uri}
+                    isLoop={item.isLoop ?? true}
+                    fullscreen={fullscreen}
+                    isActive={itemIndex === index}
+                    carouselActive={active}
+                    playerCache={playerCache}
+                    report={report}
+                  />
+                )}
+              </SlideErrorBoundary>
             </TouchableOpacity>
           );
         }}

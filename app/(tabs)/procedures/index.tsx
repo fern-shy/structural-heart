@@ -1,3 +1,4 @@
+import { ContentUnavailable } from '@/components/ContentUnavailable';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -14,6 +15,7 @@ export default function ProceduresIndex() {
   if (!content && loading) {
     return <LoadingScreen message="Loading procedures…" />;
   }
+  if (!content) return <ContentUnavailable />;
 
   return (
     <ThemedView style={{ flex: 1 }}>

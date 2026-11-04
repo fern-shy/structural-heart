@@ -1,5 +1,5 @@
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Animated, Platform, View } from "react-native";
 
 const HEIGHT = 3;
@@ -21,7 +21,7 @@ export function SlideProgressBar({
   const trackColor = useThemeColor({}, "progressTrack");
   const indicatorColor = useThemeColor({}, "tint");
   const [trackWidth, setTrackWidth] = useState(0);
-  const position = useRef(new Animated.Value(index)).current;
+  const [position] = useState(() => new Animated.Value(index));
 
   useEffect(() => {
     Animated.timing(position, {

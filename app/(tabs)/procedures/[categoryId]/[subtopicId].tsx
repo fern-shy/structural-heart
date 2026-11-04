@@ -1,3 +1,4 @@
+import { ContentUnavailable } from "@/components/ContentUnavailable";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -111,6 +112,15 @@ export default function SubtopicDetailScreen() {
     );
   }
 
+  if (!content) {
+    return (
+      <>
+        <Stack.Screen options={{ title: "", headerLargeTitle: false }} />
+        <ContentUnavailable />
+      </>
+    );
+  }
+
   if (!subtopic) {
     return (
       <ThemedView
@@ -179,8 +189,13 @@ export default function SubtopicDetailScreen() {
     );
   }
 
+  const reportContext = {
+    procedure: subtopic.title,
+    path: `/procedures/${categoryId}/${subtopicId}`,
+  };
+
   const currentCaption =
-    currentSlide && currentSlide.type !== "text"
+    currentSlide?.type === "image" || currentSlide?.type === "video"
       ? currentSlide.caption
       : undefined;
 
@@ -206,6 +221,7 @@ export default function SubtopicDetailScreen() {
               active={!fullscreen}
               playerCache={playerCache}
               onOpenFullscreen={openFullscreenAt}
+              reportContext={reportContext}
             />
             <ScrollView
               style={{ flex: 1 }}
@@ -283,6 +299,7 @@ export default function SubtopicDetailScreen() {
                   fullscreen
                   playerCache={playerCache}
                   onClose={exitFullscreen}
+                  reportContext={reportContext}
                 />
               ) : null}
             </ThemedView>

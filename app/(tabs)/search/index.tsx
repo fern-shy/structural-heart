@@ -1,5 +1,6 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { ContentUnavailable } from "@/components/ContentUnavailable";
 import { useContent } from "@/context/ContentProvider";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -115,6 +116,8 @@ export default function SearchScreen() {
   const fieldBg = scheme === "dark" ? "rgba(255,255,255,0.06)" : "#fff";
   const fieldText = scheme === "dark" ? "#ECEDEE" : "#11181C";
   const border = scheme === "dark" ? "#3A3F44" : "#C8CDD2";
+
+  if (!content) return <ContentUnavailable />;
 
   return (
     <ThemedView style={{ flex: 1 }}>

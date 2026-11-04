@@ -32,7 +32,6 @@ import { docToSlide } from "@/lib/content/fetchContent";
 import { isUploadedMedia } from "@/lib/content/mediaUpload";
 import type { SlideDoc } from "@/lib/content/schema";
 import type { Slide } from "@/types/media";
-import { driveImageUrl, getDriveFileId } from "@/utils/drive";
 import { Image } from "expo-image";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -222,7 +221,6 @@ function slideSummary(s: SlideDoc): string {
 
 function mediaSourceLabel(uri: string): string {
   if (isUploadedMedia(uri)) return "Uploaded file";
-  if (getDriveFileId(uri)) return "Google Drive link";
   return "Web link";
 }
 
@@ -240,7 +238,7 @@ function SlideThumb({ slide }: { slide: SlideDoc }) {
     return (
       <View style={box}>
         <Image
-          source={{ uri: driveImageUrl(slide.uri, { width: 400 }) }}
+          source={{ uri: slide.uri }}
           contentFit="cover"
           style={{ width: "100%", height: "100%" }}
         />
@@ -463,11 +461,11 @@ function SlideForm({
                 value={uri}
                 onChangeText={setUri}
                 autoCapitalize="none"
-                placeholder="Paste a Google Drive share link or a direct URL"
+                placeholder="Paste a Firebase Storage or direct file URL"
                 hint={
                   UPLOADS_SUPPORTED
-                    ? "Uploading fills this in for you. Google Drive share links still work too."
-                    : "Google Drive links and Firebase Storage URLs both work."
+                    ? "Uploading fills this in for you."
+                    : "Use a Firebase Storage download URL."
                 }
               />
               <Field

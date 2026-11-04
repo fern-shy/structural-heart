@@ -1,4 +1,3 @@
-import bundledContent from "@/data/content";
 import { readCachedContent, writeCachedContent } from "@/lib/content/contentCache";
 import { fetchContent } from "@/lib/content/fetchContent";
 import { isFirebaseConfigured } from "@/lib/firebase";
@@ -13,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 
-export type ContentSource = "firestore" | "cache" | "bundled";
+export type ContentSource = "firestore" | "cache";
 
 type ContentContextValue = {
   content: Content | null;
@@ -31,7 +30,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   const [content, setContent] = useState<Content | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [source, setSource] = useState<ContentSource>("bundled");
+  const [source, setSource] = useState<ContentSource>("cache");
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -53,8 +52,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
 
     if (!isFirebaseConfigured) {
       if (mounted.current) {
-        setContent((prev) => prev ?? cached ?? bundledContent);
-        setSource(cached ? "cache" : "bundled");
+        if (!cached) {
+          setError(new Error("Firebase is not configured for this build."));
+        }
         setLoading(false);
       }
       return;
@@ -63,22 +63,15 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     try {
       const fresh = await fetchContent();
       if (!mounted.current) return;
-      // Treat an empty Firestore as "not yet seeded" and keep the fallback.
-      if (fresh.categories.length > 0) {
-        setContent(fresh);
-        setSource("firestore");
-        setError(null);
-        void writeCachedContent(fresh);
-      } else if (!cached) {
-        setContent(bundledContent);
-        setSource("bundled");
-      }
+      setContent(fresh);
+      setSource("firestore");
+      setError(null);
+      void writeCachedContent(fresh);
     } catch (err) {
       if (!mounted.current) return;
+      // Keep showing cached content if there is any; screens show the error
+      // with a Retry button only when there is nothing to show.
       setError(err instanceof Error ? err : new Error(String(err)));
-      // Fall back to bundled snapshot only if we have nothing to show.
-      setContent((prev) => prev ?? cached ?? bundledContent);
-      if (!cached) setSource("bundled");
     } finally {
       if (mounted.current) setLoading(false);
     }
@@ -89,7 +82,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   }, [load]);
 
   const refresh = useCallback(() => {
-    void load(false);
+    // Screens only swap in the loading spinner when there's no content yet,
+    // so this is safe to call while content is showing.
+    void load(true);
   }, [load]);
 
   return (

@@ -4,6 +4,7 @@ import {
   TextSlide,
   VideoSlide,
 } from "@/components/MediaCarousel";
+import { SlideFallback } from "@/components/SlideFallback";
 import { Colors } from "@/constants/Colors";
 import type { Slide } from "@/types/media";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
@@ -44,7 +45,8 @@ function PhoneFrame({ children }: { children: ReactNode }) {
 /** One slide as the procedure screen shows it: the media area with its caption beneath. */
 export function PhoneSlide({ slide }: { slide: Slide }) {
   const playerCache = usePlayerCache();
-  const caption = slide.type !== "text" ? slide.caption : undefined;
+  const caption =
+    slide.type === "image" || slide.type === "video" ? slide.caption : undefined;
   return (
     <PhoneFrame>
       <View style={{ height: MEDIA_HEIGHT, backgroundColor: "black" }}>
@@ -54,6 +56,8 @@ export function PhoneSlide({ slide }: { slide: Slide }) {
             content={slide.content}
             height={MEDIA_HEIGHT}
           />
+        ) : slide.type === "unavailable" ? (
+          <SlideFallback problem={slide.reason} />
         ) : slide.type === "image" ? (
           <ImageSlide key={slide.uri} uri={slide.uri} />
         ) : (

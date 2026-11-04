@@ -1,3 +1,4 @@
+import { ContentUnavailable } from '@/components/ContentUnavailable';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -15,6 +16,7 @@ export default function CategoryScreen() {
   if (!content && loading) {
     return <LoadingScreen />;
   }
+  if (!content) return <ContentUnavailable />;
 
   if (!category) {
     return (

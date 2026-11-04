@@ -26,15 +26,9 @@ by non-coders directly in the Firebase console.
    (`EXPO_PUBLIC_FIREBASE_*`, see `.env.example`).
 2. Deploy the security rules: `firestore.rules`, `storage.rules`
    (e.g. `firebase deploy --only firestore:rules,storage`).
-3. Seed Firestore from the bundled snapshot:
-
-   ```bash
-   # Save a service account key as serviceAccount.json (git-ignored), then:
-   npm run seed           # add `-- --wipe` to clear existing content first
-   ```
-
-If Firebase env vars are absent, the app falls back to the bundled snapshot in
-`data/content.ts`, so it still runs.
+3. Add content with the content editor below. The app needs Firebase: it
+   keeps a copy of the last content it loaded for offline use, but has no
+   built-in content of its own.
 
 ### Content editor (for non-coders)
 
@@ -72,7 +66,7 @@ can be deployed separately with `npm run deploy:rules`.
 
 - Architecture and system walkthrough: [`docs/architecture.md`](docs/architecture.md)
 - Content editing guide for non-coders: [`docs/content-editing-guide.md`](docs/content-editing-guide.md)
-- Media storage migration plan (Google Drive -> Firebase Storage): [`docs/media-migration.md`](docs/media-migration.md)
+- Media storage (Firebase Storage; Google Drive support removed in 1.1.0): [`docs/media-migration.md`](docs/media-migration.md)
 
 ## Current tech stack
 
@@ -90,6 +84,5 @@ can be deployed separately with `npm run deploy:rules`.
 - Search: `app/(tabs)/search/index.tsx`
 - Firebase init: `lib/firebase.ts`
 - Content layer: `lib/content/*` (schema, fetch, cache), `context/ContentProvider.tsx`
-- Content types + fallback snapshot: `types/content.ts`, `types/media.ts`, `data/content.ts`
-- Seed script: `scripts/seed-firestore.ts`
-- Media handling: `components/MediaCarousel.tsx`, `utils/drive.ts`, `utils/videoPlayerCache.ts`
+- Content types: `types/content.ts`, `types/media.ts`
+- Media handling: `components/MediaCarousel.tsx`, `components/SlideFallback.tsx`, `utils/videoPlayerCache.ts`

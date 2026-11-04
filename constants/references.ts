@@ -25,6 +25,8 @@ export const changelog: Release[] = [
       "References lists the authors and a contact email.",
       "The app now opens in light mode, with a Dark mode switch on References. Text slides use dark text on white.",
       "A thin bar under the header shows where you are in a procedure's slides.",
+      "If a slide can't load, it says so and offers Retry and a Report problem button that emails the details.",
+      "If the procedures can't load on first launch, the app says so and offers Retry.",
     ],
   },
   {
