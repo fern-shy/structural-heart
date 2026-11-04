@@ -9,10 +9,11 @@ import {
   guideTagline,
   legalCopy,
 } from "@/constants/references";
+import { useThemePreference } from "@/context/ThemePreferenceProvider";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import Constants from "expo-constants";
 import type { ReactNode } from "react";
-import { Linking, ScrollView, View } from "react-native";
+import { Linking, ScrollView, Switch, View } from "react-native";
 
 function Section({
   title,
@@ -50,6 +51,7 @@ function Section({
 const appVersion = Constants.expoConfig?.version;
 
 export default function ReferencesScreen() {
+  const { scheme, setScheme } = useThemePreference();
   return (
     <ThemedView style={{ flex: 1 }}>
       <ScrollView
@@ -64,6 +66,27 @@ export default function ReferencesScreen() {
         <ThemedText style={{ fontSize: 18, lineHeight: 26, paddingTop: 12 }}>
           {guideTagline}
         </ThemedText>
+        <Section title="Appearance">
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <ThemedText style={{ fontSize: 16 }}>
+              Dark mode
+            </ThemedText>
+            <Switch
+              accessibilityLabel="Dark mode"
+              value={scheme === "dark"}
+              onValueChange={(on) => setScheme(on ? "dark" : "light")}
+              trackColor={{ true: "#0B4DFF" }}
+              thumbColor="#ffffff"
+            />
+          </View>
+        </Section>
         <Section title="Author">
           <ThemedText type="defaultSemiBold">{authors}</ThemedText>
           {authorCopy.map((paragraph) => (

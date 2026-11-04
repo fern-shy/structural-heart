@@ -2,6 +2,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useContent } from "@/context/ContentProvider";
+import { useThemeColor } from "@/hooks/useThemeColor";
 import { useOrientationFullscreen } from "@/hooks/useOrientationFullscreen";
 import type { Subtopic } from "@/types/content";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
@@ -45,6 +46,7 @@ export default function SubtopicDetailScreen() {
   const slideParam = Array.isArray(slide) ? slide[0] : slide;
   const router = useRouter();
   const { content, loading } = useContent();
+  const cardColor = useThemeColor({}, "card");
   const subtopic = useMemo(() => {
     const category = content?.categories.find((c) => c.id === categoryId);
     return category ? findSubtopic(category.subtopics, subtopicId) : undefined;
@@ -159,7 +161,7 @@ export default function SubtopicDetailScreen() {
               style={{
                 padding: 16,
                 borderRadius: 12,
-                backgroundColor: "rgba(0,0,0,0.05)",
+                backgroundColor: cardColor,
               }}
             >
               <ThemedText type="subtitle">{item.title}</ThemedText>
@@ -241,7 +243,7 @@ export default function SubtopicDetailScreen() {
                       style={{
                         padding: 16,
                         borderRadius: 12,
-                        backgroundColor: "rgba(0,0,0,0.05)",
+                        backgroundColor: cardColor,
                       }}
                     >
                       <ThemedText type="defaultSemiBold">{child.title}</ThemedText>

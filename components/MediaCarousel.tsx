@@ -1,5 +1,6 @@
 import type { Slide } from "@/types/media";
 import { driveImageUrl, drivePreviewUrl, driveToDirectUrl } from "@/utils/drive";
+import { useThemeColor } from "@/hooks/useThemeColor";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
 import { Image } from "expo-image";
 import { VideoView, type VideoPlayer } from "expo-video";
@@ -280,15 +281,15 @@ export function TextSlide({
   content: string;
   height: DimensionValue;
 }) {
+  const backgroundColor = useThemeColor({}, "background");
+  const color = useThemeColor({}, "text");
   return (
-    <View
-      style={{ width: "100%", height, backgroundColor: "#1a1a2e", padding: 16 }}
-    >
+    <View style={{ width: "100%", height, backgroundColor, padding: 16 }}>
       <ThemedText
         style={{
           fontSize: 20,
           fontWeight: "700",
-          color: "#fff",
+          color,
           marginBottom: 12,
         }}
       >
@@ -303,7 +304,8 @@ export function TextSlide({
           style={{
             fontSize: 15,
             lineHeight: 22,
-            color: "rgba(255,255,255,0.9)",
+            color,
+            opacity: 0.85,
           }}
         >
           {content}

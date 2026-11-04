@@ -4,17 +4,32 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 // Reanimated is configured via the Worklets Babel plugin; no direct import needed here
 
+import { Platform } from 'react-native';
+
 import { ContentProvider } from '@/context/ContentProvider';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import {
+  ThemePreferenceProvider,
+  useThemePreference,
+} from '@/context/ThemePreferenceProvider';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  return (
+    <ThemePreferenceProvider>
+      <RootNavigator />
+    </ThemePreferenceProvider>
+  );
+}
+
+function RootNavigator() {
+  const { scheme: colorScheme, loaded: themeLoaded } = useThemePreference();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  if (!loaded) {
-    // Async font loading only occurs in development.
+  // Async font loading only occurs in development. Native also waits for the
+  // saved theme so dark-mode users don't see a light flash; web renders right
+  // away to keep static rendering intact.
+  if (!loaded || (!themeLoaded && Platform.OS !== 'web')) {
     return null;
   }
 
@@ -39,7 +54,7 @@ export default function RootLayout() {
           <Stack.Screen name="admin" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       </ThemeProvider>
     </ContentProvider>
   );

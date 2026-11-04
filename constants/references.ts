@@ -23,6 +23,7 @@ export const changelog: Release[] = [
     date: "November 2026",
     items: [
       "References lists the authors and a contact email.",
+      "The app now opens in light mode, with a Dark mode switch on References. Text slides use dark text on white.",
     ],
   },
   {

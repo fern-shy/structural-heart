@@ -2,11 +2,13 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useContent } from '@/context/ContentProvider';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import { Link } from 'expo-router';
 import { FlatList, TouchableOpacity, View } from 'react-native';
 
 export default function ProceduresIndex() {
   const { content, loading } = useContent();
+  const cardColor = useThemeColor({}, 'card');
   const categories = content?.categories ?? [];
 
   if (!content && loading) {
@@ -31,7 +33,7 @@ export default function ProceduresIndex() {
             href={{ pathname: '/procedures/[categoryId]', params: { categoryId: item.id } }}
             asChild
           >
-            <TouchableOpacity style={{ padding: 16, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.05)' }}>
+            <TouchableOpacity style={{ padding: 16, borderRadius: 12, backgroundColor: cardColor }}>
               <ThemedText type="subtitle">{item.title}</ThemedText>
               <ThemedText>{item.subtitle}</ThemedText>
             </TouchableOpacity>
