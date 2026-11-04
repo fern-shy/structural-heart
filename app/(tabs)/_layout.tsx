@@ -16,6 +16,8 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      // Back from another tab returns to the anchor (Procedures).
+      backBehavior="initialRoute"
       screenOptions={{
         tabBarActiveTintColor: colors.tabIconSelected,
         tabBarInactiveTintColor: colors.tabIconDefault,
