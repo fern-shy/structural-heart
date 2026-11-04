@@ -1,6 +1,6 @@
-import { useColorScheme as useRNColorScheme } from "react-native";
+import { useThemePreference, type ColorScheme } from "@/context/ThemePreferenceProvider";
 
-/** RN 0.86 can return `unspecified`; theme maps only have light/dark. */
-export function useColorScheme(): "light" | "dark" {
-  return useRNColorScheme() === "dark" ? "dark" : "light";
+/** The app's chosen color scheme (see ThemePreferenceProvider), not the device's. */
+export function useColorScheme(): ColorScheme {
+  return useThemePreference().scheme;
 }

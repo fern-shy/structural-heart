@@ -1,7 +1,9 @@
+import { ContentUnavailable } from "@/components/ContentUnavailable";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useContent } from "@/context/ContentProvider";
+import { useThemeColor } from "@/hooks/useThemeColor";
 import { useOrientationFullscreen } from "@/hooks/useOrientationFullscreen";
 import type { Subtopic } from "@/types/content";
 import { VideoPlayerCache } from "@/utils/videoPlayerCache";
@@ -18,6 +20,7 @@ import {
   View,
 } from "react-native";
 import MediaCarousel from "../../../../components/MediaCarousel";
+import { SlideProgressBar } from "@/components/SlideProgressBar";
 
 function findSubtopic(
   list: Subtopic[],
@@ -45,6 +48,7 @@ export default function SubtopicDetailScreen() {
   const slideParam = Array.isArray(slide) ? slide[0] : slide;
   const router = useRouter();
   const { content, loading } = useContent();
+  const cardColor = useThemeColor({}, "card");
   const subtopic = useMemo(() => {
     const category = content?.categories.find((c) => c.id === categoryId);
     return category ? findSubtopic(category.subtopics, subtopicId) : undefined;
@@ -108,6 +112,15 @@ export default function SubtopicDetailScreen() {
     );
   }
 
+  if (!content) {
+    return (
+      <>
+        <Stack.Screen options={{ title: "", headerLargeTitle: false }} />
+        <ContentUnavailable />
+      </>
+    );
+  }
+
   if (!subtopic) {
     return (
       <ThemedView
@@ -159,7 +172,7 @@ export default function SubtopicDetailScreen() {
               style={{
                 padding: 16,
                 borderRadius: 12,
-                backgroundColor: "rgba(0,0,0,0.05)",
+                backgroundColor: cardColor,
               }}
             >
               <ThemedText type="subtitle">{item.title}</ThemedText>
@@ -176,8 +189,13 @@ export default function SubtopicDetailScreen() {
     );
   }
 
+  const reportContext = {
+    procedure: subtopic.title,
+    path: `/procedures/${categoryId}/${subtopicId}`,
+  };
+
   const currentCaption =
-    currentSlide && currentSlide.type !== "text"
+    currentSlide?.type === "image" || currentSlide?.type === "video"
       ? currentSlide.caption
       : undefined;
 
@@ -192,6 +210,10 @@ export default function SubtopicDetailScreen() {
       {subtopic?.slides ? (
         <>
           <View style={{ flex: 1, opacity: fullscreen ? 0 : 1 }}>
+            <SlideProgressBar
+              index={currentSlideIndex}
+              count={subtopic.slides.length}
+            />
             <MediaCarousel
               slides={subtopic.slides}
               index={currentSlideIndex}
@@ -199,6 +221,7 @@ export default function SubtopicDetailScreen() {
               active={!fullscreen}
               playerCache={playerCache}
               onOpenFullscreen={openFullscreenAt}
+              reportContext={reportContext}
             />
             <ScrollView
               style={{ flex: 1 }}
@@ -241,7 +264,7 @@ export default function SubtopicDetailScreen() {
                       style={{
                         padding: 16,
                         borderRadius: 12,
-                        backgroundColor: "rgba(0,0,0,0.05)",
+                        backgroundColor: cardColor,
                       }}
                     >
                       <ThemedText type="defaultSemiBold">{child.title}</ThemedText>
@@ -276,6 +299,7 @@ export default function SubtopicDetailScreen() {
                   fullscreen
                   playerCache={playerCache}
                   onClose={exitFullscreen}
+                  reportContext={reportContext}
                 />
               ) : null}
             </ThemedView>

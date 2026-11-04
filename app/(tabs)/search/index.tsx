@@ -1,7 +1,9 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { ContentUnavailable } from "@/components/ContentUnavailable";
 import { useContent } from "@/context/ContentProvider";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { useThemeColor } from "@/hooks/useThemeColor";
 import { searchContent, type SearchHit } from "@/lib/content/searchContent";
 import { Link } from "expo-router";
 import { useMemo, useState } from "react";
@@ -56,9 +58,7 @@ function HighlightedSnippet({
 }
 
 function ResultRow({ item, query }: { item: SearchHit; query: string }) {
-  const scheme = useColorScheme();
-  const card =
-    scheme === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
+  const card = useThemeColor({}, "card");
   const href = item.subtopicId
     ? {
         pathname: "/(tabs)/procedures/[categoryId]/[subtopicId]" as const,
@@ -116,6 +116,8 @@ export default function SearchScreen() {
   const fieldBg = scheme === "dark" ? "rgba(255,255,255,0.06)" : "#fff";
   const fieldText = scheme === "dark" ? "#ECEDEE" : "#11181C";
   const border = scheme === "dark" ? "#3A3F44" : "#C8CDD2";
+
+  if (!content) return <ContentUnavailable />;
 
   return (
     <ThemedView style={{ flex: 1 }}>

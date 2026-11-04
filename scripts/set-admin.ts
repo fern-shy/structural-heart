@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Grants (or revokes) the `admin` custom claim on a Firebase Auth user, which is
  * what `firestore.rules` / `storage.rules` check to allow content writes.
@@ -9,7 +10,7 @@
  *   npm run set-admin -- dad@example.com          # grant admin
  *   npm run set-admin -- dad@example.com --revoke # revoke admin
  *
- * Uses the same serviceAccount.json credentials as the seed script.
+ * Needs a service account key saved as serviceAccount.json (git-ignored).
  */
 import { applicationDefault, cert, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";

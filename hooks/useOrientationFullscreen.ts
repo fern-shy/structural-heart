@@ -2,7 +2,9 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
-type SlideType = 'image' | 'video' | 'text';
+import type { Slide } from '@/types/media';
+
+type SlideType = Slide['type'];
 
 /**
  * Listens for device orientation changes and triggers fullscreen enter/exit.
@@ -14,7 +16,7 @@ export function useOrientationFullscreen(
   isFullscreen: boolean,
   setFullscreen: (fullscreen: boolean) => void,
 ) {
-  const canEnter = !!currentSlideType && currentSlideType !== 'text';
+  const canEnter = currentSlideType === 'image' || currentSlideType === 'video';
   // The listener reads the latest state from here, so it can stay subscribed
   // for the screen's lifetime instead of being swapped out on every toggle,
   // which could drop a rotation event that lands mid-swap.

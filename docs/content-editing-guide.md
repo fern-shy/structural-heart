@@ -68,8 +68,8 @@ slides. No Firebase console needed.
   buttons still work for small reorders.
 - **Slides** page: add **Text**, **Image**, or **Video** slides. For images and
   videos, **drag the file from your computer onto the dashed box** (or click the
-  box to choose a file). It uploads and fills in the link for you; pasting a
-  Google Drive link still works too. Limits: 25 MB per image, 300 MB per video.
+  box to choose a file). It uploads and fills in the link for you. Google
+  Drive links are not supported. Limits: 25 MB per image, 300 MB per video.
   MP4 videos play everywhere; iPhone `.mov` files may not play in Chrome or on
   Android, so export as MP4 if the preview won't play.
 - **Previews:** the **Preview** panel beside the slide form shows exactly how the
@@ -191,11 +191,6 @@ the parent in the app.
 Change the `order` numbers. Lowest shows first. Leave gaps (10, 20, 30) if you
 want room to insert things later.
 
-### Replace a Google Drive image with a hosted one
-
-1. Upload the file to **Storage** and copy its Download URL (steps above).
-2. Open the slide and paste the new URL into `uri`, replacing the old Drive link.
-
 ## Tips
 
 - IDs can't be renamed after creation — pick a clear one up front, or delete and
@@ -204,3 +199,17 @@ want room to insert things later.
   (`image`, `video`, or `text`) and that `order` is a **number**, not text.
 - The app keeps a copy of the last content it saw, so it still works offline and
   updates automatically once it's back online.
+
+---
+
+## Cutting a release (developer)
+
+The References tab shows one changelog entry per release and the installed
+version number.
+
+1. Add the new entry at the top of `changelog` in
+   [constants/references.ts](../constants/references.ts), with user-facing
+   bullets for what changed.
+2. Set `version` in `app.json` to the same number (e.g. `1.1.0`).
+3. Commit, then tag it: `git tag v1.1.0 && git push origin v1.1.0`.
+4. Deploy web (`npm run deploy`) and build native as usual.

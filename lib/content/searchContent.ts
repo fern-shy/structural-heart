@@ -71,7 +71,7 @@ function slideFields(slide: Slide, slideNumber: number): { kind: string; text: s
       { kind: label, text: slide.content, rank: 2 },
     ];
   }
-  if (!slide.caption?.trim()) return [];
+  if (slide.type === "unavailable" || !slide.caption?.trim()) return [];
   return [{ kind: `${label} caption`, text: slide.caption, rank: 1 }];
 }
 

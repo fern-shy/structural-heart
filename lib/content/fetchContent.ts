@@ -1,4 +1,8 @@
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+// Always read from the server: offline, getDocs() quietly returns an empty
+// result instead of failing. The app keeps its own on-device copy (see
+// contentCache.ts), so a failure here falls back to that or to the
+// "couldn't load" screen.
+import { collection, getDocsFromServer, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Category, Content, Subtopic } from "@/types/content";
 import type { Slide } from "@/types/media";
@@ -28,12 +32,33 @@ export function docToSlide(id: string, d: SlideDoc): Slide | null {
 }
 
 async function fetchSlides(subtopicPath: string): Promise<Slide[]> {
-  const snap = await getDocs(
+  const snap = await getDocsFromServer(
     query(collection(db, `${subtopicPath}/${COLLECTIONS.slides}`), orderBy("order")),
   );
-  return snap.docs
-    .map((d) => docToSlide(d.id, d.data() as SlideDoc))
-    .filter((s): s is Slide => s !== null);
+  // A slide with broken data stays in place as a placeholder, so slide numbers
+  // still match the editor and the problem can be reported.
+  return snap.docs.map((d) => {
+    const data = d.data() as SlideDoc;
+    return (
+      docToSlide(d.id, data) ?? {
+        id: d.id,
+        type: "unavailable",
+        reason: unavailableReason(data),
+      }
+    );
+  });
+}
+
+function unavailableReason(d: SlideDoc): string {
+  switch (d.type) {
+    case "text":
+      return "Text slide has no title or content";
+    case "image":
+    case "video":
+      return `${d.type === "image" ? "Image" : "Video"} slide has no media link`;
+    default:
+      return `Unknown slide type "${String((d as { type?: unknown }).type)}"`;
+  }
 }
 
 function buildSubtopic(
@@ -60,7 +85,7 @@ function buildSubtopic(
 
 async function fetchCategorySubtopics(categoryId: string): Promise<Subtopic[]> {
   const categoryPath = `${COLLECTIONS.categories}/${categoryId}`;
-  const snap = await getDocs(
+  const snap = await getDocsFromServer(
     query(
       collection(db, `${categoryPath}/${COLLECTIONS.subtopics}`),
       orderBy("order"),
@@ -103,7 +128,7 @@ async function fetchCategorySubtopics(categoryId: string): Promise<Subtopic[]> {
 
 /** Fetches all content from Firestore and assembles the nested Content tree. */
 export async function fetchContent(): Promise<Content> {
-  const snap = await getDocs(
+  const snap = await getDocsFromServer(
     query(collection(db, COLLECTIONS.categories), orderBy("order")),
   );
 

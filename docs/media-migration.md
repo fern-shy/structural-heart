@@ -1,5 +1,11 @@
 # Media Migration Plan: Google Drive to Firebase Storage
 
+> **Status: complete (1.1.0).** All media is served from Firebase Storage and the
+> app's Google Drive support (`utils/drive.ts`, the web Drive iframe player, and
+> the Drive-linked bundled snapshot) has been removed. A Drive link pasted into
+> a slide will now fail to load and show the "Report problem" fallback. This
+> document is kept for history.
+
 This plan replaces Google Drive-hosted assets with a production-safe storage and delivery model.
 
 ## Chosen approach (implemented)

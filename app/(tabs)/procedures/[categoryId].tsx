@@ -1,18 +1,22 @@
+import { ContentUnavailable } from '@/components/ContentUnavailable';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useContent } from '@/context/ContentProvider';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { FlatList, TouchableOpacity, View } from 'react-native';
 
 export default function CategoryScreen() {
   const { categoryId } = useLocalSearchParams<{ categoryId: string }>();
   const { content, loading } = useContent();
+  const cardColor = useThemeColor({}, 'card');
   const category = content?.categories.find((c) => c.id === categoryId);
 
   if (!content && loading) {
     return <LoadingScreen />;
   }
+  if (!content) return <ContentUnavailable />;
 
   if (!category) {
     return (
@@ -42,7 +46,7 @@ export default function CategoryScreen() {
             }}
             asChild
           >
-            <TouchableOpacity style={{ padding: 16, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.05)' }}>
+            <TouchableOpacity style={{ padding: 16, borderRadius: 12, backgroundColor: cardColor }}>
               <ThemedText type="subtitle">{item.title}</ThemedText>
               {item.description ? <ThemedText>{item.description}</ThemedText> : null}
             </TouchableOpacity>
