@@ -368,6 +368,10 @@ export default function MediaCarousel({
   const userDragRef = useRef(false);
   // react-native-web only emits onScroll, so web commits once scrolling settles.
   const webScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // True until the list has been scrolled to its starting slide once.
+  // initialScrollIndex alone isn't reliable in Safari, which can leave a
+  // freshly opened fullscreen list on the first slide.
+  const needsInitialScrollRef = useRef(true);
 
   useEffect(
     () => () => {
@@ -398,11 +402,20 @@ export default function MediaCarousel({
     const layoutChanged =
       layoutRef.current.width !== width || layoutRef.current.active !== active;
     layoutRef.current = { width, active };
-    if (!layoutChanged && shownIndexRef.current === index) return;
+    if (
+      !needsInitialScrollRef.current &&
+      !layoutChanged &&
+      shownIndexRef.current === index
+    ) {
+      return;
+    }
     shownIndexRef.current = index;
     userDragRef.current = false;
     if (slides.length === 0) return;
     const frame = requestAnimationFrame(() => {
+      // Cleared here rather than above so a cancelled frame (e.g. React
+      // re-running effects in development) still gets its scroll.
+      needsInitialScrollRef.current = false;
       listRef.current?.scrollToOffset({
         offset: index * width,
         animated: false,
@@ -466,8 +479,25 @@ export default function MediaCarousel({
                   clearTimeout(webScrollTimerRef.current);
                 }
                 webScrollTimerRef.current = setTimeout(() => {
-                  commitFromOffset(offset, pageWidth);
-                  userDragRef.current = false;
+                  if (userDragRef.current) {
+                    commitFromOffset(offset, pageWidth);
+                    userDragRef.current = false;
+                    return;
+                  }
+                  // The browser moved the list without the user (Safari can
+                  // reset a newly opened list to the first slide). Put it
+                  // back on the current slide.
+                  const target = shownIndexRef.current * width;
+                  if (
+                    active &&
+                    Math.abs(pageWidth - width) <= 1 &&
+                    Math.abs(offset - target) > 1
+                  ) {
+                    listRef.current?.scrollToOffset({
+                      offset: target,
+                      animated: false,
+                    });
+                  }
                 }, 120);
               }
             : undefined
