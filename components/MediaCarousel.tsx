@@ -120,6 +120,17 @@ function NativeVideoSlide({
 
   if (!player) return null;
 
+  // On web, expo-video keeps every <video> mounted on a player in sync by
+  // copying each one's seek to the others. Two elements playing at once never
+  // agree on currentTime, so they seek each other forever and never become
+  // playable (endless spinner in fullscreen). The hidden inline slide
+  // therefore drops its <video> while fullscreen owns the player.
+  if (Platform.OS === "web" && !carouselActive) {
+    return (
+      <View style={{ width: "100%", height: "100%", backgroundColor: "black" }} />
+    );
+  }
+
   return (
     <View style={{ width: "100%", height: "100%", backgroundColor: "black" }}>
       <VideoView
